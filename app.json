@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Wingdex",
-    "slug": "Wingdex",
+    "slug": "wingdex",
+    "scheme": "wingdex",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +21,20 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wingdex uses the photo you choose to request a bird identification.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
