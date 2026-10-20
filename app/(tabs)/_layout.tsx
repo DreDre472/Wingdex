@@ -15,7 +15,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Identify', tabBarIcon: ({ color, size }) => <ScanLine color={color} size={size} /> }} />
       <Tabs.Screen name="birds" options={{ title: 'Birds', tabBarIcon: ({ color, size }) => <Compass color={color} size={size} /> }} />
-      <Tabs.Screen name="pokedex" options={{ title: 'Wing Data', tabBarIcon: ({ color, size }) => <Database color={color} size={size} /> }} />
+      <Tabs.Screen name="pokedex" options={{ title: 'Pokedex', tabBarIcon: ({ color, size }) => <Database color={color} size={size} /> }} />
     </Tabs>
   );
 }

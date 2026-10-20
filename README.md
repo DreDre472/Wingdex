@@ -2,6 +2,50 @@
 
 Wingdex is a cross-platform Palawan bird field guide built with Expo and React Native.
 
+## Application overview
+
+### Objectives
+- Help users identify birds quickly by uploading a photo.
+- Provide an easy-to-use bird reference guide with names, scientific names, and regional information.
+- Support bird learning and field observation tracking on mobile devices.
+- Let users save and revisit identified or observed birds in a personal collection.
+- Make bird recognition more accessible without requiring expert knowledge.
+
+### Features
+- Photo-based bird identification using AI.
+- Searchable bird directory with bird names, scientific names, and region filters.
+- Regional filtering for easier browsing and species discovery.
+- Saved bird collection / Pokedex for keeping track of favorites and sightings.
+- Observation history stored locally on the device.
+- Daily featured bird spotlight for learning and discovery.
+- Cross-platform mobile app built with Expo and React Native.
+- Confidence threshold checks to keep uncertain matches from being treated as valid identifications.
+
+### Problem that can be solved
+- Many people struggle to identify birds from photos or in the field.
+- Birding often requires expert knowledge, printed guides, or internet research.
+- Users may want a simple way to record and remember birds they see.
+- This app bridges that gap by combining AI recognition, a local bird guide, and personal bird tracking.
+
+### Pros and cons
+
+#### Pros
+- User-friendly mobile experience.
+- Convenient photo-based identification.
+- Good for learning and casual bird watching.
+- Local saving of sightings and favorites.
+- Search and filter functionality makes browsing easier.
+- Works as both a guide and a personal collection tracker.
+- Cross-platform support through Expo.
+
+#### Cons
+- AI identification may be inaccurate if the photo is blurry, poorly lit, or unclear.
+- The worldwide bird list is only a starter set, not a complete global checklist.
+- Range information is estimated rather than taken from a verified scientific distribution database.
+- Accuracy depends on the backend API and image quality.
+- Some features require a working backend and API key configuration.
+- It is best viewed as a learning and reference app rather than a formal scientific bird database.
+	
 ## Run locally
 
 ```sh
@@ -14,7 +58,7 @@ Open the QR code with Expo Go, or press `a` in the terminal for an Android emula
 ## Current implementation
 
 - Photo-library selection and preview.
-- Searchable directory of 100 worldwide starter species plus the three-species Palawan reference guide; directory photos remain question marks until identified.
+- Searchable directory of 100 worldwide starter species; directory photos remain question marks until identified.
 - Gemini bird identification worldwide, with device-local observation records and continent-scale range filters.
 - Device-local Pokedex saved with AsyncStorage.
 - Confidence threshold and schema validation for worldwide identification responses.

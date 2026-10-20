@@ -7,11 +7,13 @@ describe('Gemini response validation', () => {
     expect(parseGeminiResponse(JSON.stringify({
       commonName: 'Atlantic Puffin',
       scientificName: 'Fratercula arctica',
+      description: 'A seabird with a colorful bill that nests in coastal burrows.',
       confidence: 0.82,
       regions: ['Europe', 'North America'],
     }))).toEqual({
       commonName: 'Atlantic Puffin',
       scientificName: 'Fratercula arctica',
+      description: 'A seabird with a colorful bill that nests in coastal burrows.',
       confidence: 0.82,
       regions: ['Europe', 'North America'],
     });
@@ -21,16 +23,17 @@ describe('Gemini response validation', () => {
     expect(parseGeminiResponse(JSON.stringify({
       commonName: 'Unknown',
       scientificName: 'Unknown',
+      description: 'Unknown',
       confidence: 0,
       regions: ['Unknown'],
-    }))).toEqual({ commonName: null, scientificName: null, confidence: 0, regions: [] });
+    }))).toEqual({ commonName: null, scientificName: null, description: null, confidence: 0, regions: [] });
   });
 
   it.each([
     '{invalid json',
-    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', confidence: 1.2, regions: ['Asia'] }),
-    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', confidence: 0.8, regions: ['Mars'] }),
-    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', confidence: 'high', regions: ['Asia'] }),
+    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', description: 'An owl.', confidence: 1.2, regions: ['Asia'] }),
+    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', description: 'An owl.', confidence: 0.8, regions: ['Mars'] }),
+    JSON.stringify({ commonName: 'Owl', scientificName: 'Strigidae', description: 'An owl.', confidence: 'high', regions: ['Asia'] }),
   ])('rejects invalid model output: %s', (text) => {
     expect(() => parseGeminiResponse(text)).toThrow();
   });
@@ -40,6 +43,7 @@ describe('Gemini response validation', () => {
       text: JSON.stringify({
         commonName: 'Keel-billed Toucan',
         scientificName: 'Ramphastos sulfuratus',
+        description: 'A rainforest toucan with a large, colorful bill.',
         confidence: 0.91,
         regions: ['North America', 'South America'],
       }),
@@ -50,6 +54,7 @@ describe('Gemini response validation', () => {
     await expect(identify(Buffer.from('image bytes'), 'image/jpeg')).resolves.toEqual({
       commonName: 'Keel-billed Toucan',
       scientificName: 'Ramphastos sulfuratus',
+      description: 'A rainforest toucan with a large, colorful bill.',
       confidence: 0.91,
       regions: ['North America', 'South America'],
     });

@@ -25,9 +25,9 @@ export function WorldBirdRow({ species, photoUri }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 96, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 8, backgroundColor: colors.white },
-  image: { width: 78, height: 80, borderRadius: 6, backgroundColor: colors.leaf },
-  placeholder: { width: 78, height: 80, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leaf },
+  row: { minHeight: 96, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  image: { width: 78, height: 80, backgroundColor: colors.leaf },
+  placeholder: { width: 78, height: 80, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leaf },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 39, lineHeight: 45 },
   copy: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   name: { color: colors.ink, fontSize: 15, fontWeight: '700', lineHeight: 19 },

@@ -5,6 +5,7 @@ import { birdRegions, type BirdRegion } from '../data/regions';
 export type IdentificationResult = {
   commonName: string | null;
   scientificName: string | null;
+  description: string | null;
   confidence: number;
   regions: BirdRegion[];
 };
@@ -49,6 +50,8 @@ export async function identifyBird(
     (typeof result.commonName !== 'string' && result.commonName !== null) ||
     !('scientificName' in result) ||
     (typeof result.scientificName !== 'string' && result.scientificName !== null) ||
+    !('description' in result) ||
+    (typeof result.description !== 'string' && result.description !== null) ||
     !('confidence' in result) ||
     typeof result.confidence !== 'number' ||
     !Number.isFinite(result.confidence) ||
@@ -64,6 +67,7 @@ export async function identifyBird(
   return {
     commonName: result.commonName,
     scientificName: result.scientificName,
+    description: result.description,
     confidence: result.confidence,
     regions: result.regions,
   };

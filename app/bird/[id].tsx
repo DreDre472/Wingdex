@@ -2,7 +2,8 @@ import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'r
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Bookmark, BookmarkCheck, ExternalLink } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getBird } from '../../src/data/birds';
+import { birds, getBird, type Bird } from '../../src/data/birds';
+import type { BirdObservation } from '../../src/services/collection';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors, rarityColors } from '../../src/theme';
 
@@ -10,6 +11,11 @@ export default function BirdDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const bird = getBird(id);
   const { savedIds, observations, toggle } = useSavedBirds();
+  const observation = observations.find((item) => item.id === id);
+  const guideBird = observation && birds.find((item) =>
+    item.scientificName.toLowerCase() === observation.scientificName?.toLowerCase() ||
+    item.name.toLowerCase() === observation.commonName?.toLowerCase()
+  );
   const saved = bird ? savedIds.includes(bird.id) : false;
   const identifiedObservation = bird && observations.find((observation) =>
     observation.photoUri && (
@@ -18,7 +24,7 @@ export default function BirdDetailScreen() {
     )
   );
 
-  if (!bird) {
+  if (!bird && !observation) {
     return (
       <SafeAreaView style={styles.notFound} edges={['top', 'bottom']}>
         <Text style={styles.notFoundTitle}>Bird not found</Text>
@@ -26,6 +32,10 @@ export default function BirdDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  if (!bird && observation) return <ObservationDetailView observation={observation} guideBird={guideBird} />;
+
+  if (!bird) return null;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -82,7 +92,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 35 },
   backButton: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   backLabel: { color: colors.inkSoft, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
-  image: { width: '100%', height: 255, borderRadius: 8, backgroundColor: colors.leaf },
+  image: { width: '100%', height: 255, backgroundColor: colors.leaf },
   unknownImage: { alignItems: 'center', justifyContent: 'center' },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 76, lineHeight: 84 },
   titleBlock: { paddingTop: 18 },
@@ -90,21 +100,95 @@ const styles = StyleSheet.create({
   title: { color: colors.ink, fontFamily: 'Georgia', fontSize: 27, lineHeight: 32, marginTop: 6 },
   scientific: { color: colors.muted, fontSize: 13, fontStyle: 'italic', marginTop: 5 },
   badges: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 13 },
-  rarityDot: { width: 8, height: 8, borderRadius: 4 },
+  rarityDot: { width: 8, height: 8 },
   rarity: { color: colors.inkSoft, fontSize: 12, textTransform: 'capitalize' },
-  separator: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.muted, marginHorizontal: 2 },
+  separator: { width: 3, height: 3, backgroundColor: colors.muted, marginHorizontal: 2 },
   habitat: { color: colors.muted, fontSize: 12 },
   rule: { height: 1, backgroundColor: colors.line, marginVertical: 18 },
   sectionLabel: { color: colors.coral, fontSize: 9, fontWeight: '800', letterSpacing: 1.3 },
   description: { color: colors.ink, fontSize: 15, lineHeight: 23, marginTop: 8 },
   provisional: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 11 },
-  saveButton: { minHeight: 48, backgroundColor: colors.ink, borderRadius: 7, marginTop: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  saveButton: { minHeight: 48, backgroundColor: colors.ink, marginTop: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   saveLabel: { color: colors.white, fontSize: 13, fontWeight: '700' },
-  creditBlock: { marginTop: 24, padding: 14, borderRadius: 7, backgroundColor: colors.leaf },
+  creditBlock: { marginTop: 24, padding: 14, backgroundColor: colors.leaf },
   creditText: { color: colors.inkSoft, fontSize: 11, lineHeight: 16, marginTop: 6 },
   sourceLink: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 },
   sourceLabel: { color: colors.ink, fontSize: 11, textDecorationLine: 'underline' },
   localNote: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 13, textAlign: 'center' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper },
   notFoundTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 24 },
+});
+
+function ObservationDetailView({ observation, guideBird }: { observation: BirdObservation; guideBird: Bird | undefined }) {
+  const description = guideBird?.description ?? observation.description;
+
+  return (
+    <SafeAreaView style={observationStyles.screen} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={observationStyles.content}>
+        <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
+          <ArrowLeft color={colors.ink} size={19} />
+          <Text style={styles.backLabel}>POKEDEX</Text>
+        </Pressable>
+        <View style={observationStyles.device}>
+          <View style={observationStyles.deviceTop}>
+            <View style={observationStyles.lens} />
+            <View style={observationStyles.indicators}><View style={observationStyles.indicator} /><View style={[observationStyles.indicator, observationStyles.dim]} /></View>
+            <Text style={observationStyles.deviceCode}>SIGHTING RECORD</Text>
+          </View>
+          <View style={observationStyles.display}>
+            {observation.photoUri ? (
+              <Image source={{ uri: observation.photoUri }} style={observationStyles.observationImage} />
+            ) : (
+              <View style={observationStyles.placeholder}><Text style={observationStyles.question}>?</Text></View>
+            )}
+            <Text style={observationStyles.entryNumber}>FIELD ENTRY / {observation.id.slice(-6).toUpperCase()}</Text>
+            <Text style={observationStyles.name}>{observation.commonName ?? 'Unidentified bird'}</Text>
+            {observation.scientificName && <Text style={observationStyles.scientific}>{observation.scientificName}</Text>}
+            <View style={observationStyles.rule} />
+            <Text style={observationStyles.sectionLabel}>{guideBird ? 'FIELD GUIDE DESCRIPTION' : 'IDENTIFICATION NOTE'}</Text>
+            <Text style={observationStyles.description}>{description ?? 'No species description was saved for this sighting.'}</Text>
+            <View style={observationStyles.metaBlock}>
+              <Text style={observationStyles.metaLabel}>RANGE</Text>
+              <Text style={observationStyles.metaValue}>{observation.regions.join(', ') || 'Unknown'}</Text>
+              <Text style={observationStyles.metaLabel}>RECORDED</Text>
+              <Text style={observationStyles.metaValue}>{new Date(observation.identifiedAt).toLocaleString()}</Text>
+              {observation.commonName && (
+                <>
+                  <Text style={observationStyles.metaLabel}>IDENTIFICATION CONFIDENCE</Text>
+                  <Text style={observationStyles.metaValue}>{Math.round(observation.confidence * 100)}%</Text>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+        <Text style={observationStyles.note}>Identification notes are generated from the submitted photo and may need verification.</Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const observationStyles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.paper },
+  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 },
+  device: { backgroundColor: colors.coral, borderWidth: 1, borderColor: colors.danger, borderBottomWidth: 4, borderBottomColor: colors.danger, padding: 11 },
+  deviceTop: { height: 28, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 3, marginBottom: 8 },
+  lens: { width: 17, height: 17, borderWidth: 2, borderColor: colors.coralPale, backgroundColor: '#4E9DB2' },
+  indicators: { flexDirection: 'row', gap: 4 },
+  indicator: { width: 6, height: 6, backgroundColor: colors.yellow },
+  dim: { backgroundColor: colors.danger },
+  deviceCode: { color: colors.coralPale, fontSize: 8, fontWeight: '800', letterSpacing: 1, marginLeft: 'auto' },
+  display: { borderWidth: 3, borderColor: colors.ink, backgroundColor: colors.leaf, padding: 12 },
+  observationImage: { width: '100%', height: 225, backgroundColor: colors.leafDeep },
+  placeholder: { height: 150, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leafDeep },
+  question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 55 },
+  entryNumber: { color: colors.inkSoft, fontSize: 9, fontWeight: '800', letterSpacing: 1, marginTop: 14 },
+  name: { color: colors.ink, fontFamily: 'Georgia', fontSize: 24, lineHeight: 29, marginTop: 5 },
+  scientific: { color: colors.inkSoft, fontSize: 12, fontStyle: 'italic', marginTop: 4 },
+  rule: { height: 1, backgroundColor: colors.leafDeep, marginVertical: 16 },
+  sectionLabel: { color: colors.coral, fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  description: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 7 },
+  metaBlock: { marginTop: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.leafDeep },
+  metaLabel: { color: colors.inkSoft, fontSize: 8, fontWeight: '800', letterSpacing: 1, marginTop: 8 },
+  metaValue: { color: colors.ink, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  note: { color: colors.muted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 14 },
 });

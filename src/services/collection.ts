@@ -51,7 +51,9 @@ export async function getBirdObservations(): Promise<BirdObservation[]> {
 
   try {
     const parsed: unknown = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed.filter(isBirdObservation) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter(isBirdObservation).map((observation) => ({ ...observation, description: observation.description ?? null }))
+      : [];
   } catch {
     return [];
   }
@@ -79,6 +81,7 @@ export async function addBirdObservation(
     id,
     commonName: identified ? result.commonName : null,
     scientificName: identified ? result.scientificName : null,
+    description: identified ? result.description : null,
     confidence: identified ? result.confidence : 0,
     regions: identified && result.regions.length > 0 ? result.regions : ['Unknown'],
     identifiedAt: new Date().toISOString(),
@@ -96,6 +99,7 @@ function isBirdObservation(value: unknown): value is BirdObservation {
   if (!('confidence' in value) || typeof value.confidence !== 'number') return false;
   if (!('commonName' in value) || (typeof value.commonName !== 'string' && value.commonName !== null)) return false;
   if (!('scientificName' in value) || (typeof value.scientificName !== 'string' && value.scientificName !== null)) return false;
+  if ('description' in value && typeof value.description !== 'string' && value.description !== null) return false;
   if (!('photoUri' in value) || (typeof value.photoUri !== 'string' && value.photoUri !== null)) return false;
   if (!('regions' in value) || !Array.isArray(value.regions)) return false;
 

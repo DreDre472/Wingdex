@@ -1,17 +1,19 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { BirdObservation } from '../services/collection';
 import { colors } from '../theme';
 
 type Props = {
   observation: BirdObservation;
+  onOpen: () => void;
 };
 
-export function BirdObservationRow({ observation }: Props) {
+export function BirdObservationRow({ observation, onOpen }: Props) {
   const identified = Boolean(observation.commonName && observation.photoUri);
   const regionLabel = observation.regions.join(', ') || 'Range unknown';
 
   return (
-    <View style={styles.row}>
+    <Pressable onPress={onOpen} style={styles.row} accessibilityRole="button" accessibilityLabel={`View ${observation.commonName ?? 'unidentified bird'} sighting`}>
       {identified ? (
         <Image source={{ uri: observation.photoUri! }} style={styles.image} />
       ) : (
@@ -22,14 +24,15 @@ export function BirdObservationRow({ observation }: Props) {
         {observation.scientificName && <Text numberOfLines={1} style={styles.scientific}>{observation.scientificName}</Text>}
         <Text numberOfLines={1} style={styles.meta}>{regionLabel} · {new Date(observation.identifiedAt).toLocaleDateString()}</Text>
       </View>
-    </View>
+      <ChevronRight color={colors.muted} size={18} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 94, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.line, borderRadius: 8, backgroundColor: colors.white },
-  image: { width: 72, height: 72, borderRadius: 6, backgroundColor: colors.leaf },
-  unknownImage: { width: 72, height: 72, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leaf },
+  row: { minHeight: 94, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  image: { width: 72, height: 72, backgroundColor: colors.leaf },
+  unknownImage: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leaf },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 39, lineHeight: 45 },
   copy: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   name: { color: colors.ink, fontSize: 15, fontWeight: '700' },

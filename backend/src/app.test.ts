@@ -9,6 +9,7 @@ describe('POST /identify', () => {
     const identifyPhoto = vi.fn().mockResolvedValue({
       commonName: 'Atlantic Puffin',
       scientificName: 'Fratercula arctica',
+      description: 'A seabird with a colorful bill that nests in coastal burrows.',
       confidence: 0.91,
       regions: ['Europe', 'North America'],
     });
@@ -21,6 +22,7 @@ describe('POST /identify', () => {
     expect(response.body).toEqual({
       commonName: 'Atlantic Puffin',
       scientificName: 'Fratercula arctica',
+      description: 'A seabird with a colorful bill that nests in coastal burrows.',
       confidence: 0.91,
       regions: ['Europe', 'North America'],
     });
@@ -48,6 +50,7 @@ describe('POST /identify', () => {
       identifyPhoto: vi.fn().mockResolvedValue({
         commonName: null,
         scientificName: null,
+        description: null,
         confidence: 0,
         regions: [],
       }),
@@ -56,7 +59,7 @@ describe('POST /identify', () => {
       .attach('photo', photo, { filename: 'unknown.webp', contentType: 'image/webp' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ commonName: null, scientificName: null, confidence: 0, regions: [] });
+    expect(response.body).toEqual({ commonName: null, scientificName: null, description: null, confidence: 0, regions: [] });
   });
 
   it('limits image size and hides upstream errors', async () => {
