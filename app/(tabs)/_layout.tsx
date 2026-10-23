@@ -7,10 +7,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.ink,
+        tabBarActiveTintColor: colors.coral,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginBottom: 4 },
-        tabBarStyle: { height: 66, paddingTop: 8, backgroundColor: colors.paper, borderTopColor: colors.line },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginBottom: 4 },
+        tabBarStyle: { height: 66, paddingTop: 8, backgroundColor: colors.paper, borderTopColor: colors.line, borderTopWidth: 1 },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Identify', tabBarIcon: ({ color, size }) => <ScanLine color={color} size={size} /> }} />

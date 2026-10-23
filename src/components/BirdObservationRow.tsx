@@ -30,9 +30,9 @@ export function BirdObservationRow({ observation, onOpen }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 94, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
-  image: { width: 72, height: 72, backgroundColor: colors.leaf },
-  unknownImage: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leaf },
+  row: { minHeight: 94, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.leafDeep, borderBottomWidth: 3, backgroundColor: '#E3EBDD' },
+  image: { width: 72, height: 72, backgroundColor: colors.leaf, borderWidth: 2, borderColor: colors.ink },
+  unknownImage: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leafDeep, borderWidth: 2, borderColor: colors.ink },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 39, lineHeight: 45 },
   copy: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   name: { color: colors.ink, fontSize: 15, fontWeight: '700' },

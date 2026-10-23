@@ -100,6 +100,14 @@ export default function IdentifyScreen() {
       </View>
 
       <View style={styles.uploadPanel}>
+        <View style={styles.deviceTop}>
+          <View style={styles.lens} />
+          <View style={styles.indicatorGroup}>
+            <View style={styles.indicator} />
+            <View style={[styles.indicator, styles.indicatorDim]} />
+          </View>
+          <Text style={styles.deviceCode}>FIELD IDENTIFICATION UNIT</Text>
+        </View>
         <View style={styles.uploadHeading}>
           <View style={styles.uploadIcon}><ImagePlus color={colors.ink} size={19} /></View>
           <View style={{ flex: 1 }}>
@@ -191,19 +199,25 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brand: { color: colors.ink, fontFamily: 'Georgia', fontSize: 26, fontWeight: '700' },
-  kicker: { color: colors.muted, fontSize: 9, fontWeight: '700', letterSpacing: 1.5, marginTop: 1 },
-  locationMark: { width: 38, height: 38, backgroundColor: colors.leaf, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.leafDeep },
-  locationText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  brand: { color: colors.ink, fontFamily: 'Georgia', fontSize: 26, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  kicker: { color: colors.coral, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginTop: 1 },
+  locationMark: { width: 42, height: 42, backgroundColor: colors.coral, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.danger, borderBottomWidth: 3, borderBottomColor: colors.danger },
+  locationText: { color: colors.white, fontSize: 11, fontWeight: '800' },
   intro: { paddingTop: 28, paddingBottom: 20 },
   eyebrow: { color: colors.coral, fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
   title: { color: colors.ink, fontFamily: 'Georgia', fontSize: 31, lineHeight: 36, marginTop: 7 },
-  uploadPanel: { backgroundColor: colors.coral, borderWidth: 1, borderColor: colors.danger, borderBottomWidth: 4, borderBottomColor: colors.danger, padding: 13 },
+  uploadPanel: { backgroundColor: '#C84E3F', borderWidth: 1, borderColor: '#B24034', borderBottomWidth: 4, borderBottomColor: '#98392F', padding: 11 },
+  deviceTop: { height: 28, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 3, marginBottom: 9 },
+  lens: { width: 17, height: 17, borderWidth: 2, borderColor: '#F4B2A2', backgroundColor: '#4E9DB2' },
+  indicatorGroup: { flexDirection: 'row', gap: 4 },
+  indicator: { width: 6, height: 6, backgroundColor: '#F2CF67' },
+  indicatorDim: { backgroundColor: '#9C332C' },
+  deviceCode: { color: '#F8D5CE', fontSize: 8, fontWeight: '800', letterSpacing: 1, marginLeft: 'auto' },
   uploadHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   uploadIcon: { width: 36, height: 36, backgroundColor: colors.leaf, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '700' },
   uploadSectionTitle: { color: colors.white, fontSize: 17, fontWeight: '700' },
-  sectionSub: { color: colors.coralPale, fontSize: 12, marginTop: 3 },
+  sectionSub: { color: '#F8D5CE', fontSize: 12, marginTop: 3 },
   pickArea: { height: 156, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', backgroundColor: '#F7F8F2', alignItems: 'center', justifyContent: 'center' },
   pickGraphic: { width: 48, height: 48, backgroundColor: colors.leaf, alignItems: 'center', justifyContent: 'center', marginBottom: 9 },
   pickTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
@@ -215,7 +229,7 @@ const styles = StyleSheet.create({
   primaryLabel: { color: colors.white, fontSize: 14, fontWeight: '700' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.6 },
-  privacyNote: { color: colors.coralPale, fontSize: 10, marginTop: 9, textAlign: 'center' },
+  privacyNote: { color: '#F8D5CE', fontSize: 10, marginTop: 9, textAlign: 'center' },
   messageBox: { marginTop: 12, padding: 11, backgroundColor: colors.coralPale },
   messageText: { color: colors.danger, fontSize: 12, fontWeight: '700', lineHeight: 17 },
   messageDetail: { color: colors.inkSoft, fontSize: 11, marginTop: 4 },

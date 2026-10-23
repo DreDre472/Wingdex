@@ -49,10 +49,10 @@ export function BirdRow({ bird, photoUri, saved, onOpen, onToggleSaved }: Props)
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, marginBottom: 10, padding: 10, minHeight: 104 },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3EBDD', borderWidth: 1, borderColor: colors.leafDeep, borderBottomWidth: 3, marginBottom: 10, padding: 10, minHeight: 104 },
   main: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  image: { width: 78, height: 80, backgroundColor: colors.leaf },
-  unknownImage: { width: 78, height: 80, backgroundColor: colors.leaf, alignItems: 'center', justifyContent: 'center' },
+  image: { width: 78, height: 80, backgroundColor: colors.leaf, borderWidth: 2, borderColor: colors.ink },
+  unknownImage: { width: 78, height: 80, backgroundColor: colors.leafDeep, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.ink },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 39, lineHeight: 45 },
   copy: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   name: { color: colors.ink, fontSize: 15, fontWeight: '700', lineHeight: 19 },
