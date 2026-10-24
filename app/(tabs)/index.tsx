@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowUpRight, Check, ChevronDown, Circle, Feather, Search } from 'lucide-react-native';
+import { ArrowUpRight, Bell, Check, ChevronDown, Circle, Feather, Search, User } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { birdImages } from '../../src/data/bird-images';
 import { birds, getDailyFeaturedBird } from '../../src/data/birds';
@@ -66,7 +66,19 @@ export default function IdentifyScreen() {
           <Text style={styles.title}>WingDex</Text>
           <Text style={styles.kicker}>Catch Them All!</Text>
         </View>
-        <View style={styles.locationMark}><Text style={styles.locationText}>PH</Text></View>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Notifications">
+            <Bell color={colors.ink} size={22} strokeWidth={2} />
+          </Pressable>
+          <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="User Profile">
+            <User color={colors.ink} size={22} strokeWidth={2} />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.searchBar} accessible accessibilityLabel="Search birds by name or family">
+        <Search color={colors.muted} size={18} strokeWidth={2} />
+        <Text style={styles.searchPlaceholder}>Search birds by name or family</Text>
       </View>
 
       <Pressable
@@ -132,11 +144,6 @@ export default function IdentifyScreen() {
             <Text style={styles.filterPillText}>Unseen</Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.searchBar} accessible accessibilityLabel="Search birds by name or family">
-        <Search color={colors.muted} size={18} strokeWidth={2} />
-        <Text style={styles.searchPlaceholder}>Search birds by name or family</Text>
       </View>
 
       <View style={styles.resultsSection}>
@@ -230,6 +237,8 @@ const styles = StyleSheet.create({
   kicker: { color: '#748078', fontSize: 11, fontWeight: '400', marginTop: 1 },
   locationMark: { width: 44, height: 44, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   locationText: { color: '#192F27', fontSize: 11, fontWeight: '800' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconButton: { width: 40, height: 40, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   intro: { paddingTop: 28, paddingBottom: 20 },
   eyebrow: { color: '#245C43', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
   title: { color: '#192F27', fontFamily: 'Georgia', fontSize: 31, lineHeight: 36, marginTop: 7 },
