@@ -30,12 +30,25 @@ export function BirdObservationRow({ observation, onOpen }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { minHeight: 94, flexDirection: 'row', alignItems: 'center', padding: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.leafDeep, borderBottomWidth: 3, backgroundColor: '#E3EBDD' },
-  image: { width: 72, height: 72, backgroundColor: colors.leaf, borderWidth: 2, borderColor: colors.ink },
-  unknownImage: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leafDeep, borderWidth: 2, borderColor: colors.ink },
+  row: {
+    minHeight: 94,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  image: { width: 72, height: 72, backgroundColor: colors.leaf, borderRadius: 12 },
+  unknownImage: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.leafDeep, borderRadius: 12 },
   question: { color: colors.ink, fontFamily: 'Georgia', fontSize: 39, lineHeight: 45 },
   copy: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
-  name: { color: colors.ink, fontSize: 15, fontWeight: '700' },
-  scientific: { color: colors.muted, fontSize: 12, fontStyle: 'italic', marginTop: 3 },
-  meta: { color: colors.muted, fontSize: 10, marginTop: 7 },
+  name: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  scientific: { color: colors.muted, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
+  meta: { color: colors.muted, fontSize: 11, marginTop: 8 },
 });

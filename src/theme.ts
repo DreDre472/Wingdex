@@ -1,16 +1,17 @@
 export const colors = {
-  ink: '#17382F',
+  ink: '#1B2E26',
   inkSoft: '#38564D',
-  paper: '#F3F2E9',
+  paper: '#F9F8F2',
   white: '#FFFFFF',
   line: '#D8DED3',
-  leaf: '#DDE9D9',
+  leaf: '#C8D5C7',
   leafDeep: '#A8C8A4',
-  coral: '#D95D45',
+  coral: '#B35A44',
   coralPale: '#F7E2D9',
   yellow: '#E8C763',
   muted: '#79877E',
   danger: '#A33F30',
+  softGrey: '#E2E4DE',
 };
 
 export const rarityColors = {

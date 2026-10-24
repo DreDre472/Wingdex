@@ -1,41 +1,43 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# Repository Guidelines
 
-## Expo has changed — do not trust your training data
+## Project Structure & Module Organization
+Wingdex is a monorepo containing a React Native mobile app (root) and a Node.js backend (`/backend`).
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+- **Mobile App**: Built with Expo and Expo Router. 
+  - `app/`: Contains all screens and layouts (file-based routing).
+  - `src/`: Contains shared business logic, components, and data.
+    - `src/components/`: UI components.
+    - `src/data/`: Static bird species and regional data.
+    - `src/hooks/`: React hooks for state management (e.g., `useSavedBirds`).
+    - `src/services/`: API and local storage abstractions.
+- **Backend**: Express server handling AI bird identification.
+  - `backend/src/`: Contains server setup, Gemini AI integration, and tests.
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+## Build, Test, and Development Commands
 
-## Commands
+### Mobile App
+- `npm install` — Install dependencies.
+- `npm start` — Start Expo development server.
+- `npm run android` / `npm run ios` / `npm run web` — Start on specific platform.
+- `npm run lint` — Run ESLint.
+- `npx tsc --noEmit` — Typecheck the frontend.
+- `npx expo install <package>` — Install SDK-compatible packages.
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+### Backend
+- `cd backend && npm install` — Install dependencies.
+- `npm run dev` — Start server with hot-reload (via `tsx`).
+- `npm test` — Run tests with Vitest.
+- `npm run typecheck` — Typecheck the backend.
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+## Coding Style & Naming Conventions
+- **Frontend**: Uses TypeScript with `strict: true`. Follows `eslint-config-expo`.
+- **Backend**: Uses TypeScript (ES Modules) and Zod for schema validation.
+- **Styling**: Uses a centralized theme defined in `src/theme.ts`.
 
-Run lint and typecheck before declaring any task done.
+## Testing Guidelines
+- **Backend**: Tests are implemented using Vitest and Supertest. Run via `npm test` in the `backend/` directory.
+- **Frontend**: Type-safety is enforced via TypeScript. Run `npx tsc --noEmit` and `npm run lint` before submitting changes.
 
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+## Commit & Pull Request Guidelines
+- Use concise commit messages (e.g., "update", "initial commit").
+- Ensure both frontend and backend typechecks and lints pass before merging.

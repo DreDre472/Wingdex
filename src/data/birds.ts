@@ -9,6 +9,8 @@ export type Bird = {
   regions: BirdRegion[];
   description: string;
   habitat: string;
+  family: string;
+  size: 'Small' | 'Medium' | 'Large';
   imageUrl: string;
   imageCredit: string;
   imageLicense: string;
@@ -25,7 +27,9 @@ export const birds: Bird[] = [
     regions: ['Asia'],
     description:
       'A striking forest pheasant endemic to Palawan. Males show blue-green eye-spots across the tail; the species is locally known as tandikan.',
-    habitat: 'Lowland forest',
+    habitat: 'Woodland',
+    family: 'Phasianidae',
+    size: 'Medium',
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Palawan_Peacock_Pheasant_-_male.jpg/960px-Palawan_Peacock_Pheasant_-_male.jpg',
     imageCredit: 'Dante Alighieri',
@@ -42,7 +46,9 @@ export const birds: Bird[] = [
     regions: ['Asia'],
     description:
       'A large forest hornbill found on Palawan and nearby islands. Its loud calls can carry through the forest canopy.',
-    habitat: 'Forest canopy',
+    habitat: 'Woodland',
+    family: 'Bucerotidae',
+    size: 'Large',
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Anthracoceros_marchei_-Palawan-8.jpg/500px-Anthracoceros_marchei_-Palawan-8.jpg',
     imageCredit: 'Llimchiu',
@@ -59,7 +65,9 @@ export const birds: Bird[] = [
     regions: ['Asia'],
     description:
       'A small owl found only on Palawan. It inhabits tropical lowland forest and is most often heard after dark.',
-    habitat: 'Lowland forest',
+    habitat: 'Woodland',
+    family: 'Strigidae',
+    size: 'Small',
     imageUrl:
       'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Palawan_Scops_Owl.jpg/960px-Palawan_Scops_Owl.jpg',
     imageCredit: 'Chetatata',

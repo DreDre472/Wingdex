@@ -4,6 +4,7 @@ import { Bird as BirdIcon, Compass, Database } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { BirdObservationRow } from '../../src/components/BirdObservationRow';
+import { birds } from '../../src/data/birds';
 import { birdRegions, type BirdRegion } from '../../src/data/regions';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors } from '../../src/theme';
@@ -14,7 +15,14 @@ export default function PokedexScreen() {
   const [selectedRegion, setSelectedRegion] = useState<'All' | BirdRegion>('All');
   const { observations, storageError } = useSavedBirds();
   const filteredObservations = observations.filter((observation) => selectedRegion === 'All' || observation.regions.includes(selectedRegion));
-  const identifiedCount = observations.filter((observation) => observation.commonName !== null).length;
+
+  const identifiedSpecies = new Set(
+    observations
+      .filter((obs) => obs.commonName !== null)
+      .map((obs) => obs.id)
+  );
+  const identifiedCount = identifiedSpecies.size;
+  const totalSpecies = birds.length;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -39,10 +47,10 @@ export default function PokedexScreen() {
         <View style={styles.summary}>
           <View style={styles.summaryIcon}><BirdIcon color="#D9E8D8" size={21} /></View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>IDENTIFIED OBSERVATIONS</Text>
-            <Text style={styles.summaryCount}>{identifiedCount.toString().padStart(2, '0')} <Text style={styles.summaryTotal}>/ {observations.length.toString().padStart(2, '0')} SIGHTINGS</Text></Text>
+            <Text style={styles.summaryLabel}>SPECIES IDENTIFIED</Text>
+            <Text style={styles.summaryCount}>{identifiedCount.toString().padStart(2, '0')} <Text style={styles.summaryTotal}>/ {totalSpecies.toString().padStart(2, '0')} TOTAL</Text></Text>
           </View>
-          <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${observations.length ? (identifiedCount / observations.length) * 100 : 0}%` }]} /></View>
+          <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${totalSpecies ? (identifiedCount / totalSpecies) * 100 : 0}%` }]} /></View>
         </View>
       </View>
 
