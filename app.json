@@ -31,6 +31,14 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Wingdex uses your camera to photograph birds for identification.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "experiments": {

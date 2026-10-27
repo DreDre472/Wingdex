@@ -67,7 +67,7 @@ export default function IdentifyScreen() {
           <Text style={styles.kicker}>Catch Them All!</Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Notifications">
+          <Pressable onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Notifications">
             <Bell color={colors.ink} size={22} strokeWidth={2} />
           </Pressable>
           <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="User Profile">

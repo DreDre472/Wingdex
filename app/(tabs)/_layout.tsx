@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
-import { BookOpenText, Compass, MapPin, ScanLine, Trophy, Bookmark } from 'lucide-react-native';
+import { BookOpenText, MapPin, ScanLine, Trophy, Bookmark } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '../../src/theme';
 
 export default function TabLayout() {
   return (
@@ -90,6 +89,20 @@ export default function TabLayout() {
         name="user_profile"
         options={{
           href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="share_collection"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>
