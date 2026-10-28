@@ -4,69 +4,21 @@ import { router } from 'expo-router';
 import {
   ArrowLeft,
   ArrowRight,
-  Award,
   BellRing,
   ChevronRight,
   CloudSun,
   SlidersHorizontal,
-  Sprout,
-  UsersRound,
   X,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
+import { initialNotifications } from '../../src/data/notifications';
 import { colors } from '../../src/theme';
 
 type NotificationFilter = 'all' | 'unread' | 'following';
-type NotificationKind = 'achievement' | 'collection' | 'following';
 type PreferenceKey = 'fieldConditions' | 'collectionMilestones' | 'followingActivity';
 
 type NotificationPreferences = Record<PreferenceKey, boolean>;
-
-type InboxItem = {
-  id: string;
-  kind: NotificationKind;
-  title: string;
-  detail: string;
-  unread: boolean;
-};
-
-const initialNotifications: InboxItem[] = [
-  {
-    id: 'early-bird',
-    kind: 'achievement',
-    title: 'Early Bird badge unlocked',
-    detail: 'Five sunrise outings. Well worth the alarm.',
-    unread: true,
-  },
-  {
-    id: 'collection',
-    kind: 'collection',
-    title: 'A new bird for your life list',
-    detail: 'Your Northern Flicker sighting is ready to add.',
-    unread: true,
-  },
-  {
-    id: 'following',
-    kind: 'following',
-    title: 'Elise added a Varied Thrush',
-    detail: 'A nearby woodland sighting from someone you follow.',
-    unread: true,
-  },
-  {
-    id: 'weekly',
-    kind: 'collection',
-    title: 'Your field week in review',
-    detail: 'You logged 4 sightings across two new places.',
-    unread: false,
-  },
-];
-
-function NotificationIcon({ kind }: { kind: NotificationKind }) {
-  const common = { color: '#B17B2D', size: 28, strokeWidth: 2.1 };
-  if (kind === 'achievement') return <Award {...common} />;
-  if (kind === 'following') return <UsersRound {...common} />;
-  return <Sprout {...common} />;
-}
 
 export default function NotificationsScreen() {
   const [filter, setFilter] = useState<NotificationFilter>('all');
@@ -144,30 +96,32 @@ export default function NotificationsScreen() {
         </View>
 
         {filter !== 'following' && (filter !== 'unread' || fieldUnread) && (
-          <Pressable
-            onPress={() => setFieldUnread(false)}
-            style={({ pressed }) => [styles.weatherCard, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Field conditions. A good morning to head out. Opens local forecast."
-          >
-            <View style={styles.weatherMeta}>
-              <View style={styles.warmIcon}><CloudSun color="#B17B2D" size={28} strokeWidth={2.1} /></View>
-              <Text style={styles.weatherLabel}>FIELD CONDITIONS</Text>
-              <Text style={styles.time}>8:30 AM</Text>
-              {fieldUnread && <View style={styles.unreadDot} accessibilityLabel="Unread" />}
-            </View>
-            <Text style={styles.weatherTitle}>A good morning to head out</Text>
-            <Text style={styles.weatherCopy}>Rain clears by 10 AM. Calm winds and 54°F make for excellent birding in Portland.</Text>
+          <View style={styles.weatherCard}>
+            <Pressable
+              onPress={() => setFieldUnread(false)}
+              style={({ pressed }) => [pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Field conditions. A good morning to head out."
+            >
+              <View style={styles.weatherMeta}>
+                <View style={styles.warmIcon}><CloudSun color="#B17B2D" size={28} strokeWidth={2.1} /></View>
+                <Text style={styles.weatherLabel}>FIELD CONDITIONS</Text>
+                <Text style={styles.time}>8:30 AM</Text>
+                {fieldUnread && <View style={styles.unreadDot} accessibilityLabel="Unread" />}
+              </View>
+              <Text style={styles.weatherTitle}>A good morning to head out</Text>
+              <Text style={styles.weatherCopy}>Rain clears by 10 AM. Calm winds and 54°F make for excellent birding in Portland.</Text>
+            </Pressable>
             <Pressable onPress={() => { setFieldUnread(false); Alert.alert('Local forecast', 'The detailed Portland forecast is on its way.'); }} style={({ pressed }) => [styles.forecastLink, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="View local forecast">
               <Text style={styles.forecastText}>View local forecast</Text><ArrowRight color="#256446" size={20} strokeWidth={2.6} />
             </Pressable>
-          </Pressable>
+          </View>
         )}
 
         <View style={styles.list}>
           {filteredItems.map((item) => (
             <Pressable key={item.id} onPress={() => markRead(item.id)} style={({ pressed }) => [styles.notificationCard, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`${item.title}. ${item.detail}. ${item.unread ? 'Unread.' : 'Read.'}`}>
-              <View style={styles.warmIcon}><NotificationIcon kind={item.kind} /></View>
+              <View style={styles.warmIcon}><NotificationKindIcon kind={item.kind} /></View>
               <View style={styles.notificationCopy}>
                 <Text style={styles.notificationTitle}>{item.title}</Text>
                 <Text style={styles.notificationDetail}>{item.detail}</Text>

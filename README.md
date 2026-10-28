@@ -68,7 +68,7 @@ Live identification uses the separate Node backend in `backend/`. The app sends 
 ### Start the backend
 
 1. Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. In `backend/`, copy `.env.example` to `.env` and set `GEMINI_API_KEY` to your key. This file is ignored by Git.
+2. In `backend/`, copy `.env.example` to `.env` and set `GEMINI_API_KEY` to your key. This file is ignored by Git. For Supabase access, set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; set `SUPABASE_SECRET_KEY` for privileged server-side database operations.
 3. Install and start the service:
 
 	```sh
@@ -81,6 +81,22 @@ Live identification uses the separate Node backend in `backend/`. The app sends 
 
 The backend accepts JPEG, PNG, WebP, HEIC, and HEIF photos up to 10 MB and limits requests to 10 per IP every 15 minutes. Run its checks with `npm test` and `npm run typecheck` from `backend/`.
 
-For deployment, set `GEMINI_API_KEY`, `GEMINI_MODEL`, `PORT`, and (for web clients) `CORS_ORIGIN` in the hosting provider's environment settings. Use HTTPS and add authentication and production-grade abuse controls before making the endpoint public; the in-memory rate limit is only a basic development guard.
+### Configure app sign-in
+
+Copy the root `.env.example` to `.env.local` and set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from your Supabase project's API settings. Keep the Supabase secret key out of all app environment files; the public publishable key is intended for client apps and is protected by Row Level Security. Restart Expo after changing environment variables. Without these two values, the Account tab remains available and explains which settings are missing.
+
+Enable the Email provider in Supabase **Authentication → Providers**. In **Authentication → URL Configuration → Redirect URLs**, allow the app callback generated for your setup: `wingdex://user_profile` for installed builds, and the development URL shown by Expo for Expo Go. The app uses that callback for email confirmation and password recovery; password recovery opens the Account tab so a new password can be set.
+
+The backend exports a lazy Supabase client from `backend/src/supabase.ts`; call `getSupabaseClient()` where server-side database access is needed. It requires `SUPABASE_URL` and `SUPABASE_SECRET_KEY`, and does not connect until requested, so database credentials are not required to run identification alone. Keep the secret key on the backend only; it has elevated access and bypasses Row Level Security. The publishable key is for client-side setup and does not grant privileged access. The client setup alone does not create database tables or persist observations.
+
+### Set up Supabase tables and storage
+
+The app currently stores saved birds and observations on-device. The migrations in [`supabase/migrations/`](./supabase/migrations/) prepare matching `saved_birds` and `observations` tables, a private `observation-photos` bucket limited to 10 MB bird images, and a user `profiles` table.
+
+To create these resources, open your Supabase project's **SQL Editor**, paste and run the migration files in timestamp order. The scripts are safe to run again. Supabase Auth already manages credentials and accounts in its built-in `auth.users` table; the profile migration adds a separate `public.profiles` row for each account, including existing users, and creates a profile automatically on signup. Configure and enable sign-in providers in **Authentication** settings in the Supabase dashboard. Storage paths must start with the owner's Supabase Auth user ID, for example `<user-id>/<observation-id>.jpg`.
+
+The Account tab supports Supabase email sign-in, registration, password recovery, and sign-out. Saved birds and observations remain on-device and are not synced to Supabase. Nearby sightings and notifications in the UI are sample content, so they do not have tables in these migrations. Never put the Supabase secret key in the mobile app.
+
+For deployment, set `GEMINI_API_KEY`, `GEMINI_MODEL`, `PORT`, and (for web clients) `CORS_ORIGIN` in the hosting provider's environment settings. Set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` only when using privileged backend database access. Use HTTPS and add authentication and production-grade abuse controls before making the endpoint public; the in-memory rate limit is only a basic development guard.
 
 The 100-species worldwide directory is a starter list, not a complete global checklist; geographic regions are broad reference labels. The three-species Palawan guide is also a starter, and its rarity values are provisional. Image credits and license links for guide photos are stored alongside each guide record in `src/data/birds.ts`.

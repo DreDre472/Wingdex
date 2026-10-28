@@ -80,13 +80,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="user_profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="birds"
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
-        name="user_profile"
+        name="bird_profile"
         options={{
           href: null,
         }}

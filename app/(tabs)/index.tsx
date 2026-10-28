@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react';
 import {
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowUpRight, Bell, Check, ChevronDown, Circle, Feather, Search, User } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowUpRight, Bell, Check, ChevronDown, ChevronRight, Circle, Feather, Search, User, X } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { birdImages } from '../../src/data/bird-images';
 import { birds, getDailyFeaturedBird } from '../../src/data/birds';
+import { initialNotifications } from '../../src/data/notifications';
 import { worldBirds } from '../../src/data/world-birds';
+import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors } from '../../src/theme';
 
 export default function IdentifyScreen() {
   const { savedIds, observations } = useSavedBirds();
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [featured, setFeatured] = useState(() => getDailyFeaturedBird());
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const catalog = [...birds, ...worldBirds];
   const woodlandBirds = birds
     .map((bird, index) => ({ bird, catalogIndex: index + 1 }))
@@ -67,10 +74,22 @@ export default function IdentifyScreen() {
           <Text style={styles.kicker}>Catch Them All!</Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/notifications')} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Notifications">
+          <Pressable
+            onPress={() => setNotificationsVisible(true)}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            accessibilityHint="Opens a preview of recent notifications"
+            accessibilityState={{ expanded: notificationsVisible }}
+          >
             <Bell color={colors.ink} size={22} strokeWidth={2} />
           </Pressable>
-          <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="User Profile">
+          <Pressable
+            onPress={() => router.push('/user_profile')}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+          >
             <User color={colors.ink} size={22} strokeWidth={2} />
           </Pressable>
         </View>
@@ -225,6 +244,84 @@ export default function IdentifyScreen() {
       </Pressable>
       <Text style={styles.photoCredit}>Photo: {featured.imageCredit} · {featured.imageLicense}</Text>
     </ScrollView>
+    <Modal
+      visible={notificationsVisible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => setNotificationsVisible(false)}
+    >
+      <View style={styles.notificationModalRoot}>
+        <Pressable
+          style={styles.notificationBackdrop}
+          onPress={() => setNotificationsVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close notification preview"
+        />
+        <View
+          style={[
+            styles.notificationPreview,
+            {
+              marginTop: insets.top + 58,
+              marginBottom: insets.bottom + 16,
+              maxHeight: Math.max(180, windowHeight - insets.top - insets.bottom - 90),
+              width: Math.min(windowWidth - 32, 400),
+            },
+          ]}
+          accessibilityViewIsModal
+        >
+          <View style={styles.previewHeader}>
+            <View style={styles.previewHeading}>
+              <Text style={styles.previewEyebrow}>RECENT UPDATES</Text>
+              <Text style={styles.previewTitle}>Notifications</Text>
+            </View>
+            <Pressable
+              onPress={() => setNotificationsVisible(false)}
+              style={({ pressed }) => [styles.previewClose, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Close notification preview"
+              hitSlop={6}
+            >
+              <X color={colors.ink} size={20} strokeWidth={2.2} />
+            </Pressable>
+          </View>
+          <Text style={styles.previewNote}>A little field-journal activity, saved locally.</Text>
+          <ScrollView
+            style={styles.previewList}
+            contentContainerStyle={styles.previewListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {initialNotifications.slice(0, 3).map((item) => (
+              <View key={item.id} style={styles.previewItem}>
+                <View style={styles.previewIcon}>
+                  <NotificationKindIcon kind={item.kind} size={20} />
+                </View>
+                <View style={styles.previewCopy}>
+                  <Text style={styles.previewItemTitle}>{item.title}</Text>
+                  <Text style={styles.previewItemDetail}>{item.detail}</Text>
+                </View>
+                {item.unread && <View style={styles.previewUnreadDot} accessibilityLabel="Unread" />}
+              </View>
+            ))}
+            {initialNotifications.length === 0 && (
+              <Text style={styles.previewEmpty}>You’re all caught up. No notifications just yet.</Text>
+            )}
+          </ScrollView>
+          <Pressable
+            onPress={() => {
+              setNotificationsVisible(false);
+              router.push('/notifications');
+            }}
+            style={({ pressed }) => [styles.viewAllButton, pressed && styles.viewAllButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="View all notifications"
+          >
+            <Text style={styles.viewAllText}>View all notifications</Text>
+            <ChevronRight color={colors.white} size={19} strokeWidth={2.3} />
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 }
@@ -238,6 +335,40 @@ const styles = StyleSheet.create({
   locationMark: { width: 44, height: 44, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   locationText: { color: '#192F27', fontSize: 11, fontWeight: '800' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  notificationModalRoot: { flex: 1, alignItems: 'flex-end' },
+  notificationBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(16, 35, 28, 0.42)' },
+  notificationPreview: {
+    marginRight: 16,
+    flexShrink: 1,
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  previewHeading: { flex: 1 },
+  previewEyebrow: { color: colors.inkSoft, fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  previewTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 22, lineHeight: 28, fontWeight: '700', marginTop: 2 },
+  previewClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: colors.white },
+  previewNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  previewList: { flexShrink: 1, marginTop: 9 },
+  previewListContent: { paddingBottom: 2 },
+  previewItem: { minHeight: 69, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
+  previewIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#F4EBD9' },
+  previewCopy: { flex: 1, minWidth: 0 },
+  previewItemTitle: { color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: '700' },
+  previewItemDetail: { color: colors.muted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  previewUnreadDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.inkSoft },
+  previewEmpty: { color: colors.muted, fontSize: 13, lineHeight: 19, paddingVertical: 20, textAlign: 'center' },
+  viewAllButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.ink },
+  viewAllButtonPressed: { backgroundColor: colors.inkSoft },
+  viewAllText: { color: colors.white, fontSize: 13, fontWeight: '700' },
   iconButton: { width: 40, height: 40, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   intro: { paddingTop: 28, paddingBottom: 20 },
   eyebrow: { color: '#245C43', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
