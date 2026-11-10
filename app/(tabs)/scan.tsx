@@ -1,5 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Image, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react-native';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CameraView as CameraViewType } from 'expo-camera';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import {
@@ -26,6 +27,8 @@ import {
 } from '../../src/services/identification';
 import { getCurrentLocation, type UserLocation } from '../../src/services/location';
 import { colors } from '../../src/theme';
+
+const CAMERA_PERMISSION_ASKED_KEY = 'wingdex.camera-permission-asked.v1';
 
 type CapturedPhoto = {
   uri: string;
@@ -38,6 +41,7 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraViewType>(null);
   const [permission, requestCameraPermission, getCameraPermission] = useCameraPermissions();
+  const permissionRequestAttempted = useRef(false);
   const { addObservation } = useSavedBirds();
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(false);
@@ -54,11 +58,81 @@ export default function ScanScreen() {
   const [saveLocationError, setSaveLocationError] = useState<string | null>(null);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryCanAskAgain, setGalleryCanAskAgain] = useState(true);
+  const identificationInProgress = useRef(false);
+  const saveInProgress = useRef(false);
   const cameraSupportedInApp = Platform.OS !== 'web';
   const cameraGranted = Boolean(permission?.granted);
-  const busy = capturing || identifying || choosingPhoto;
+  const busy = capturing || identifying || choosingPhoto || saving;
+
+  useEffect(() => {
+    if (!cameraSupportedInApp || !permission || permissionRequestAttempted.current) return;
+    permissionRequestAttempted.current = true;
+    let active = true;
+
+    const requestPermissionOnce = async () => {
+      try {
+        const alreadyAsked = await AsyncStorage.getItem(CAMERA_PERMISSION_ASKED_KEY);
+        if (!active) return;
+        if (permission.granted || !permission.canAskAgain || alreadyAsked) return;
+
+        await AsyncStorage.setItem(CAMERA_PERMISSION_ASKED_KEY, 'true');
+        if (active) await requestCameraPermission();
+      } catch {
+        if (active) setCameraError(true);
+      }
+    };
+
+    void requestPermissionOnce();
+    return () => {
+      active = false;
+    };
+  }, [cameraSupportedInApp, permission, requestCameraPermission]);
+
+  const saveObservation = async (
+    resultToSave: IdentificationResult,
+    selectedPhoto: CapturedPhoto,
+    openObservation: boolean,
+  ) => {
+    if (saveInProgress.current || saved) return;
+    saveInProgress.current = true;
+    setSaving(true);
+    setSaveError(false);
+    setSaveLocationError(null);
+
+    try {
+      let location: UserLocation | null = null;
+      let locationUnavailable = false;
+      try {
+        location = await getCurrentLocation();
+      } catch (error) {
+        locationUnavailable = true;
+        setSaveLocationError(
+          error instanceof Error ? error.message : 'Location was unavailable for this sighting.',
+        );
+      }
+
+      const observation = await addObservation(resultToSave, selectedPhoto.uri, location);
+      setSaved(true);
+      if (openObservation) {
+        router.replace({
+          pathname: '/bird/[id]',
+          params: {
+            id: observation.id,
+            ...(locationUnavailable ? { locationUnavailable: 'true' } : {}),
+          },
+        });
+      }
+    } catch {
+      setSaveError(true);
+    } finally {
+      saveInProgress.current = false;
+      setSaving(false);
+    }
+  };
 
   const identifyPhoto = async (selectedPhoto: CapturedPhoto) => {
+    if (identificationInProgress.current) return;
+    identificationInProgress.current = true;
     setPhoto(selectedPhoto);
     setResult(null);
     setIdentificationError(null);
@@ -72,9 +146,19 @@ export default function ScanScreen() {
         throw new Error('Bird identification is not connected yet. Please try again later.');
       }
 
-      setResult(
-        await identifyBird(selectedPhoto.uri, selectedPhoto.fileName, selectedPhoto.mimeType)
+      const identification = await identifyBird(
+        selectedPhoto.uri,
+        selectedPhoto.fileName,
+        selectedPhoto.mimeType,
       );
+      setResult(identification);
+      if (
+        identification.commonName &&
+        identification.scientificName &&
+        identification.confidence >= minimumConfidence
+      ) {
+        await saveObservation(identification, selectedPhoto, true);
+      }
     } catch (error) {
       setIdentificationError(
         error instanceof Error
@@ -82,6 +166,7 @@ export default function ScanScreen() {
           : 'We couldn’t identify this photo. Please try again.'
       );
     } finally {
+      identificationInProgress.current = false;
       setIdentifying(false);
     }
   };
@@ -150,30 +235,6 @@ export default function ScanScreen() {
     }
   };
 
-  const saveObservation = async () => {
-    if (!result || !photo || saving || saved) return;
-    setSaving(true);
-    setSaveError(false);
-    setSaveLocationError(null);
-
-    try {
-      let location: UserLocation | null = null;
-      try {
-        location = await getCurrentLocation();
-      } catch (error) {
-        setSaveLocationError(
-          error instanceof Error ? error.message : 'Location was unavailable for this sighting.',
-        );
-      }
-      await addObservation(result, photo.uri, location);
-      setSaved(true);
-    } catch {
-      setSaveError(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const retake = () => {
     setPhoto(null);
     setResult(null);
@@ -182,15 +243,6 @@ export default function ScanScreen() {
     setSaveLocationError(null);
     setSaved(false);
     setCameraReady(false);
-  };
-
-  const requestCamera = async () => {
-    setCameraError(false);
-    try {
-      await requestCameraPermission();
-    } catch {
-      setCameraError(true);
-    }
   };
 
   const checkCameraPermission = async () => {
@@ -214,6 +266,7 @@ export default function ScanScreen() {
       !result.scientificName ||
       result.confidence < minimumConfidence
     : false;
+  const confidentlyIdentified = Boolean(result && !uncertain);
 
   return (
     <View style={styles.screen}>
@@ -285,7 +338,9 @@ export default function ScanScreen() {
             {!photo
               ? 'Keep the bird inside the frame.'
               : identifying
-                ? 'Your photo is being checked against the field guide.'
+                ? saving
+                  ? 'Saving your sighting and checking its location.'
+                  : 'Your photo is being checked against the field guide.'
                 : identificationError
                   ? 'Your photo is ready to retry or retake.'
                   : result
@@ -321,8 +376,12 @@ export default function ScanScreen() {
                 <ActivityIndicator color={colors.leafDeep} size="small" />
                 <View style={styles.resultCopy}>
                   <Text style={styles.resultEyebrow}>FIELD NOTES</Text>
-                  <Text style={styles.resultName}>Looking closely…</Text>
-                  <Text style={styles.resultDetail}>Checking this photo for a bird</Text>
+                  <Text style={styles.resultName}>
+                    {saving ? 'Saving your sighting…' : 'Looking closely…'}
+                  </Text>
+                  <Text style={styles.resultDetail}>
+                    {saving ? 'Checking your location and adding the bird to your field notes' : 'Checking this photo for a bird'}
+                  </Text>
                 </View>
               </View>
             ) : identificationError ? (
@@ -362,15 +421,29 @@ export default function ScanScreen() {
                     Confidence · {Math.round(result.confidence * 100)}%
                   </Text>
                   {uncertain && (
-                    <Text style={styles.uncertainNote}>
-                      Below the {Math.round(minimumConfidence * 100)}% confirmation threshold
-                    </Text>
+                    <>
+                      <Text style={styles.uncertainNote}>
+                        Below the {Math.round(minimumConfidence * 100)}% confirmation threshold
+                      </Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        disabled={busy}
+                        onPress={() => void identifyPhoto(photo)}
+                        style={styles.retryTextButton}
+                      >
+                        <Text style={styles.retryText}>Try identification again</Text>
+                      </Pressable>
+                    </>
                   )}
                   <Pressable
                     accessibilityRole="button"
                     accessibilityState={{ disabled: saving || saved }}
                     disabled={saving || saved}
-                    onPress={saveObservation}
+                    onPress={() => {
+                      if (result && photo) {
+                        void saveObservation(result, photo, confidentlyIdentified);
+                      }
+                    }}
                     style={[styles.saveButton, saved && styles.saveButtonDone]}
                   >
                     {saving ? (
@@ -419,7 +492,9 @@ export default function ScanScreen() {
                     ? 'Camera unavailable'
                     : permission?.granted
                       ? 'Camera couldn’t start'
-                      : 'Ready when you are'}
+                      : permission
+                        ? 'Camera access wasn’t granted'
+                        : 'Getting camera ready'}
               </Text>
               <Text style={styles.accessDescription}>
                 {!cameraSupportedInApp
@@ -428,22 +503,11 @@ export default function ScanScreen() {
                     ? 'This device couldn’t start its camera. You can try again or identify a photo instead.'
                     : permission?.granted
                       ? 'Try the camera again, or choose a photo from your library.'
-                      : 'Allow camera access to take a bird photo. Your camera stays off until you choose to enable it.'}
+                      : permission
+                        ? 'You can still identify a bird from your photos. To enable the camera later, open device settings.'
+                        : 'Camera permission is requested once when you open the scanner. You can also choose a photo instead.'}
               </Text>
-              {cameraSupportedInApp && !cameraError && !cameraGranted && permission?.canAskAgain !== false && (
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!permission}
-                  onPress={requestCamera}
-                  style={[styles.permissionButton, !permission && styles.buttonDisabled]}
-                >
-                  <Camera color={colors.ink} size={17} />
-                  <Text style={styles.permissionButtonText}>
-                    {permission ? 'Enable camera' : 'Checking camera access…'}
-                  </Text>
-                </Pressable>
-              )}
-              {cameraSupportedInApp && permission?.canAskAgain === false && !cameraGranted && (
+              {cameraSupportedInApp && permission && !cameraGranted && (
                 <View style={styles.settingsActions}>
                   <Pressable accessibilityRole="button" onPress={openSettings} style={styles.permissionButton}>
                     <Text style={styles.permissionButtonText}>Open device settings</Text>

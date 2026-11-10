@@ -17,6 +17,7 @@ import { birds, getDailyFeaturedBird } from '../../src/data/birds';
 import { initialNotifications } from '../../src/data/notifications';
 import { worldBirds } from '../../src/data/world-birds';
 import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
+import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors } from '../../src/theme';
 
@@ -67,33 +68,29 @@ export default function IdentifyScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-    <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>WingDex</Text>
-          <Text style={styles.kicker}>Catch Them All!</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            onPress={() => setNotificationsVisible(true)}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            accessibilityHint="Opens a preview of recent notifications"
-            accessibilityState={{ expanded: notificationsVisible }}
-          >
-            <Bell color={colors.ink} size={22} strokeWidth={2} />
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/user_profile')}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Account"
-          >
-            <User color={colors.ink} size={22} strokeWidth={2} />
-          </Pressable>
-        </View>
-      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <PageHeader
+          title="WingDex"
+          subtitle="Explore. Identify. Discover."
+          accessory={
+            <View style={styles.headerActions}>
+              <PageHeaderAction
+                onPress={() => setNotificationsVisible(true)}
+                accessibilityLabel="Notifications"
+                accessibilityHint="Opens a preview of recent notifications"
+                accessibilityState={{ expanded: notificationsVisible }}
+              >
+                <Bell color={colors.ink} size={22} strokeWidth={2} />
+              </PageHeaderAction>
+              <PageHeaderAction
+                onPress={() => router.push('/user_profile')}
+                accessibilityLabel="Account"
+              >
+                <User color={colors.ink} size={22} strokeWidth={2} />
+              </PageHeaderAction>
+            </View>
+          }
+        />
 
       <View style={styles.searchBar} accessible accessibilityLabel="Search birds by name or family">
         <Search color={colors.muted} size={18} strokeWidth={2} />
@@ -329,12 +326,10 @@ export default function IdentifyScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F6F7F1' },
   content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { color: '#192F27', fontFamily: 'Georgia', fontSize: 26, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  kicker: { color: '#748078', fontSize: 11, fontWeight: '400', marginTop: 1 },
   locationMark: { width: 44, height: 44, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 100, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   locationText: { color: '#192F27', fontSize: 11, fontWeight: '800' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notificationModalRoot: { flex: 1, alignItems: 'flex-end' },
   notificationBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(16, 35, 28, 0.42)' },
   notificationPreview: {
@@ -369,10 +364,8 @@ const styles = StyleSheet.create({
   viewAllButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.ink },
   viewAllButtonPressed: { backgroundColor: colors.inkSoft },
   viewAllText: { color: colors.white, fontSize: 13, fontWeight: '700' },
-  iconButton: { width: 40, height: 40, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   intro: { paddingTop: 28, paddingBottom: 20 },
   eyebrow: { color: '#245C43', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
-  title: { color: '#192F27', fontFamily: 'Georgia', fontSize: 31, lineHeight: 36, marginTop: 7 },
   collectionProgress: {
     backgroundColor: colors.leaf,
     padding: 14,
@@ -440,7 +433,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 11,
     paddingHorizontal: 14,
-    marginTop: 16,
+    marginTop: 0,
     backgroundColor: colors.white,
     borderColor: colors.line,
     borderWidth: 1,

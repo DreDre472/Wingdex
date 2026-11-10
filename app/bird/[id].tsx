@@ -8,7 +8,10 @@ import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors, rarityColors } from '../../src/theme';
 
 export default function BirdDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, locationUnavailable } = useLocalSearchParams<{
+    id: string;
+    locationUnavailable?: string;
+  }>();
   const bird = getBird(id);
   const { savedIds, observations, toggle } = useSavedBirds();
   const observation = observations.find((item) => item.id === id);
@@ -33,7 +36,15 @@ export default function BirdDetailScreen() {
     );
   }
 
-  if (!bird && observation) return <ObservationDetailView observation={observation} guideBird={guideBird} />;
+  if (!bird && observation) {
+    return (
+      <ObservationDetailView
+        observation={observation}
+        guideBird={guideBird}
+        locationUnavailable={locationUnavailable === 'true'}
+      />
+    );
+  }
 
   if (!bird) return null;
 
@@ -119,7 +130,15 @@ const styles = StyleSheet.create({
   notFoundTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 24 },
 });
 
-function ObservationDetailView({ observation, guideBird }: { observation: BirdObservation; guideBird: Bird | undefined }) {
+function ObservationDetailView({
+  observation,
+  guideBird,
+  locationUnavailable,
+}: {
+  observation: BirdObservation;
+  guideBird: Bird | undefined;
+  locationUnavailable: boolean;
+}) {
   const description = guideBird?.description ?? observation.description;
 
   return (
@@ -156,7 +175,9 @@ function ObservationDetailView({ observation, guideBird }: { observation: BirdOb
               <Text style={observationStyles.metaValue}>
                 {observation.location
                   ? `${observation.location.latitude.toFixed(5)}, ${observation.location.longitude.toFixed(5)}`
-                  : 'No location saved'}
+                  : locationUnavailable
+                    ? 'Location unavailable · sighting saved without coordinates'
+                    : 'No location saved'}
               </Text>
               {observation.commonName && (
                 <>

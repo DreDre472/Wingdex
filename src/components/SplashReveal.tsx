@@ -296,7 +296,7 @@ export function SplashReveal({ onFinish }: SplashRevealProps) {
               },
             ]}
           >
-            Catch Them All!
+            Explore. Identify. Discover.
           </Animated.Text>
         </View>
         <Animated.Text style={styles.tapCue}>

@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BirdRow } from '../../src/components/BirdRow';
 import { BirdObservationRow } from '../../src/components/BirdObservationRow';
+import { PageHeader } from '../../src/components/PageHeader';
 import { WorldBirdRow } from '../../src/components/WorldBirdRow';
 import { birds } from '../../src/data/birds';
 import { birdRegions, type BirdRegion } from '../../src/data/regions';
@@ -52,13 +53,15 @@ export default function BirdsScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.eyebrow}>SPECIES DATABASE</Text>
-          <Text style={styles.title}>Bird index</Text>
-        </View>
-        <View style={styles.count}><Text style={styles.countText}>{visibleCount.toString().padStart(2, '0')}</Text></View>
-      </View>
+      <PageHeader
+        title="Bird index"
+        eyebrow="SPECIES DATABASE"
+        accessory={
+          <View style={styles.count} accessible accessibilityLabel={`${visibleCount} species shown`}>
+            <Text style={styles.countText}>{visibleCount.toString().padStart(2, '0')}</Text>
+          </View>
+        }
+      />
 
       <View style={styles.deviceTop}>
         <View style={styles.lens} />
@@ -154,11 +157,8 @@ export default function BirdsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
-  content: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24 },
-  header: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 13 },
-  eyebrow: { color: colors.coral, fontSize: 10, fontWeight: '800', letterSpacing: 1.3 },
-  title: { color: colors.ink, fontFamily: 'Georgia', fontSize: 29, marginTop: 4 },
-  count: { minWidth: 42, height: 35, backgroundColor: '#BBD5BD', borderWidth: 2, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 },
+  count: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.leaf, alignItems: 'center', justifyContent: 'center' },
   countText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   deviceTop: { height: 34, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, marginBottom: 12, backgroundColor: '#C84E3F', borderWidth: 1, borderColor: '#B24034', borderBottomWidth: 3, borderBottomColor: '#98392F' },
   lens: { width: 16, height: 16, borderWidth: 2, borderColor: '#F4B2A2', backgroundColor: '#4E9DB2' },

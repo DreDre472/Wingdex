@@ -1,250 +1,66 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  AppState,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import * as ExpoLinking from 'expo-linking';
-import { useNavigation } from 'expo-router';
-import { ArrowLeft, ArrowUpRight, Feather, Leaf, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ArrowUpRight, Feather, Leaf, ShieldCheck } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isSupabaseConfigured, supabase } from '../../src/services/supabase';
 import { colors } from '../../src/theme';
 
-type AuthMode = 'login' | 'signup' | 'reset' | 'recovery';
 type Notice = { kind: 'success' | 'error'; text: string };
-
-const RECOVERY_PENDING_KEY = 'wingdex.auth.recovery-pending';
 
 function friendlyError(message: string) {
   return message.replace(/^AuthApiError:\s*/i, '').trim();
 }
 
-function parseAuthUrl(link: string) {
-  const parsed = new URL(link);
-  const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
-  return {
-    code: parsed.searchParams.get('code'),
-    type: parsed.searchParams.get('type') ?? hash.get('type'),
-    error: parsed.searchParams.get('error_description') ?? hash.get('error_description'),
-    accessToken: hash.get('access_token'),
-    refreshToken: hash.get('refresh_token'),
-  };
-}
-
 export default function UserProfileScreen() {
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { authNotice } = useLocalSearchParams<{ authNotice?: string }>();
   const [session, setSession] = useState<Session | null>(null);
   const [checkingSession, setCheckingSession] = useState(isSupabaseConfigured);
-  const [submitting, setSubmitting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      tabBarStyle: checkingSession || !session || mode === 'recovery'
-        ? { display: 'none' }
-        : undefined,
-    });
-  }, [checkingSession, mode, navigation, session]);
 
   useEffect(() => {
     const client = supabase;
     if (!client) return;
 
     let active = true;
-    const showError = (message: string) => {
-      if (active) setNotice({ kind: 'error', text: friendlyError(message) });
-    };
-
-    const handleAuthLink = async (link: string) => {
-      try {
-        const callback = parseAuthUrl(link);
-        if (callback.error) {
-          await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
-          showError(callback.error);
-          return;
-        }
-
-        const recoveryPending = callback.type === 'recovery' ||
-          Boolean(callback.code && await AsyncStorage.getItem(RECOVERY_PENDING_KEY));
-        if (recoveryPending) {
-          setMode('recovery');
-          await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
-        }
-
-        if (callback.code) {
-          const { data, error } = await client.auth.exchangeCodeForSession(callback.code);
-          if (error) showError(error.message);
-          else {
-            setEmail(data.session?.user.email ?? '');
-            if (!recoveryPending) {
-              setNotice({ kind: 'success', text: 'Your email is confirmed. Your field journal is ready.' });
-            }
-          }
-        } else if (callback.accessToken && callback.refreshToken) {
-          const { data, error } = await client.auth.setSession({
-            access_token: callback.accessToken,
-            refresh_token: callback.refreshToken,
-          });
-          if (error) showError(error.message);
-          else {
-            setEmail(data.session?.user.email ?? '');
-            if (!recoveryPending) {
-              setNotice({ kind: 'success', text: 'Your email is confirmed. Your field journal is ready.' });
-            }
-          }
-        }
-      } catch {
-        showError('We couldn’t complete that email link. Please request a new one and try again.');
-      }
-    };
-
     client.auth.getSession().then(({ data, error }) => {
       if (!active) return;
       setSession(data.session);
       setCheckingSession(false);
-      if (error) showError(error.message);
+      if (error) setNotice({ kind: 'error', text: friendlyError(error.message) });
     }).catch(() => {
       if (!active) return;
       setCheckingSession(false);
-      showError('Your saved sign-in could not be restored. Please try again.');
+      setNotice({ kind: 'error', text: 'Your saved sign-in could not be restored. Please try again.' });
     });
 
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (active) setSession(nextSession);
     });
-    const updateRefreshState = (state: string) => {
-      if (state === 'active') void client.auth.startAutoRefresh();
-      else void client.auth.stopAutoRefresh();
-    };
-    updateRefreshState(AppState.currentState);
-    const appStateSubscription = AppState.addEventListener('change', updateRefreshState);
-    const linkSubscription = Linking.addEventListener('url', ({ url }) => {
-      void handleAuthLink(url);
-    });
-    Linking.getInitialURL().then((url) => {
-      if (active && url) void handleAuthLink(url);
-    }).catch(() => {
-      if (active) showError('We couldn’t open your email confirmation link.');
-    });
 
     return () => {
       active = false;
       subscription.unsubscribe();
-      appStateSubscription.remove();
-      linkSubscription.remove();
     };
   }, []);
 
-  const clearNotice = useCallback(() => setNotice(null), []);
-
-  const changeMode = (nextMode: AuthMode) => {
-    setMode(nextMode);
-    setPassword('');
-    setConfirmPassword('');
-    clearNotice();
-  };
-
-  const handleSubmit = async () => {
-    if (!supabase) return;
-    clearNotice();
-
-    const normalizedEmail = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setNotice({ kind: 'error', text: 'Enter a valid email address to continue.' });
-      return;
-    }
-    if (mode === 'login' && !password) {
-      setNotice({ kind: 'error', text: 'Enter your password to log in.' });
-      return;
-    }
-    if ((mode === 'signup' || mode === 'recovery') && password.length < 8) {
-      setNotice({ kind: 'error', text: 'Choose a password with at least 8 characters.' });
-      return;
-    }
-    if (mode === 'signup' && password !== confirmPassword) {
-      setNotice({ kind: 'error', text: 'Those passwords don’t match yet.' });
-      return;
-    }
-    if (mode === 'recovery' && password !== confirmPassword) {
-      setNotice({ kind: 'error', text: 'Those passwords don’t match yet.' });
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-          options: { emailRedirectTo: ExpoLinking.createURL('user_profile') },
-        });
-        if (error) throw error;
-        setPassword('');
-        setConfirmPassword('');
-        setNotice({
-          kind: 'success',
-          text: data.session
-            ? 'Your account is ready. Welcome to your Wingdex field journal.'
-            : 'Check your inbox for a confirmation link to finish creating your account.',
-        });
-      } else if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-        if (error) throw error;
-      } else if (mode === 'reset') {
-        await AsyncStorage.setItem(RECOVERY_PENDING_KEY, 'true');
-        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-          redirectTo: ExpoLinking.createURL('user_profile'),
-        });
-        if (error) {
-          await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
-          throw error;
-        }
-        setNotice({ kind: 'success', text: 'If an account exists for this address, a password reset link is on its way.' });
-      } else {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-        setPassword('');
-        setConfirmPassword('');
-        setMode('login');
-        setNotice({ kind: 'success', text: 'Your password has been updated.' });
-      }
-    } catch (error) {
-      setNotice({
-        kind: 'error',
-        text: error instanceof Error ? friendlyError(error.message) : 'Something went wrong. Please try again.',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleSignOut = async () => {
     if (!supabase) return;
-    setSubmitting(true);
-    clearNotice();
+    setSigningOut(true);
+    setNotice(null);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      setMode('login');
       setNotice({ kind: 'success', text: 'You’re signed out. Your saved birds remain on this device.' });
     } catch (error) {
       setNotice({
@@ -252,17 +68,11 @@ export default function UserProfileScreen() {
         text: error instanceof Error ? friendlyError(error.message) : 'We couldn’t sign you out. Please try again.',
       });
     } finally {
-      setSubmitting(false);
+      setSigningOut(false);
     }
   };
+  const visibleNotice = notice ?? (authNotice ? { kind: 'success' as const, text: authNotice } : null);
 
-  const title = mode === 'signup'
-    ? 'Start your journal'
-    : mode === 'reset'
-      ? 'Find your way back'
-      : mode === 'recovery'
-        ? 'Set a new password'
-        : 'Welcome back';
   if (checkingSession) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -276,229 +86,96 @@ export default function UserProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(112, insets.bottom + 88) },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(112, insets.bottom + 88) },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.contentColumn}>
-            <View style={styles.topline}>
-              <View style={styles.brandMark}><Leaf color={colors.paper} size={19} strokeWidth={2.2} /></View>
-              <Text style={styles.wordmark}>WINGDEX <Text style={styles.wordmarkSub}>FIELD NOTES / 01</Text></Text>
-            </View>
+        <View style={styles.contentColumn}>
+          <View style={styles.topline}>
+            <View style={styles.brandMark}><Leaf color={colors.paper} size={19} strokeWidth={2.2} /></View>
+            <Text style={styles.wordmark}>WINGDEX <Text style={styles.wordmarkSub}>FIELD NOTES / 01</Text></Text>
+          </View>
 
-            <View style={styles.intro}>
-              <Text style={styles.eyebrow}>YOUR PERSONAL FIELD JOURNAL</Text>
-              <Text style={styles.title}>{title}<Text style={styles.titlePeriod}>.</Text></Text>
-              <Text style={styles.introCopy}>
-                {session && mode !== 'recovery'
-                  ? 'A little more room for every bird you find.'
-                  : mode === 'reset'
-                    ? 'We’ll send a quiet note to help you back in.'
-                    : mode === 'recovery'
-                      ? 'Choose a fresh password for your Wingdex account.'
-                      : 'Keep your discoveries close, wherever the trail leads.'}
-              </Text>
-            </View>
+          <View style={styles.intro}>
+            <Text style={styles.eyebrow}>YOUR PERSONAL FIELD JOURNAL</Text>
+            <Text style={styles.title}>Your account<Text style={styles.titlePeriod}>.</Text></Text>
+            <Text style={styles.introCopy}>
+              Keep your discoveries close, wherever the trail leads.
+            </Text>
+          </View>
 
-            <View style={styles.fieldNote}>
-              <View style={styles.fieldNoteIcon}><Feather color={colors.ink} size={20} /></View>
-              <View style={styles.fieldNoteCopy}>
-                <Text style={styles.fieldNoteKicker}>FIELD NOTE <Text style={styles.noteIndex}>NO. 014</Text></Text>
-                <Text style={styles.fieldNoteText}>Every new bird begins with a closer look.</Text>
+          <View style={styles.fieldNote}>
+            <View style={styles.fieldNoteIcon}><Feather color={colors.ink} size={20} /></View>
+            <View style={styles.fieldNoteCopy}>
+              <Text style={styles.fieldNoteKicker}>FIELD NOTE <Text style={styles.noteIndex}>NO. 014</Text></Text>
+              <Text style={styles.fieldNoteText}>Every new bird begins with a closer look.</Text>
+            </View>
+            <Text style={styles.fieldNoteMark}>✳</Text>
+          </View>
+
+          <View style={styles.accountPanel}>
+            {visibleNotice && (
+              <View
+                accessibilityRole="alert"
+                style={[styles.message, visibleNotice.kind === 'error' ? styles.messageError : styles.messageSuccess]}
+              >
+                <Text style={[styles.messageText, visibleNotice.kind === 'error' ? styles.messageErrorText : styles.messageSuccessText]}>
+                  {visibleNotice.text}
+                </Text>
               </View>
-              <Text style={styles.fieldNoteMark}>✳</Text>
-            </View>
-
-            {session && mode !== 'recovery' ? (
-              <View style={styles.accountPanel}>
-                {notice && (
-                  <View
-                    accessibilityRole="alert"
-                    style={[styles.message, notice.kind === 'error' ? styles.messageError : styles.messageSuccess]}
-                  >
-                    <Text style={[styles.messageText, notice.kind === 'error' ? styles.messageErrorText : styles.messageSuccessText]}>
-                      {notice.text}
-                    </Text>
-                  </View>
-                )}
+            )}
+            {session ? (
+              <>
                 <View style={styles.signedInMark}><ShieldCheck color={colors.ink} size={22} /></View>
                 <Text style={styles.panelEyebrow}>SIGNED IN AS</Text>
                 <Text style={styles.accountEmail}>{session.user.email}</Text>
                 <Text style={styles.accountCopy}>Your field journal is ready whenever you are.</Text>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={submitting}
-                  onPress={handleSignOut}
-                  style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, submitting && styles.disabled]}
+                  disabled={signingOut}
+                  onPress={() => void handleSignOut()}
+                  style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed, signingOut && styles.disabled]}
                 >
-                  {submitting ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.secondaryButtonText}>Sign out</Text>}
+                  {signingOut
+                    ? <ActivityIndicator color={colors.ink} />
+                    : <Text style={styles.secondaryButtonText}>Sign out</Text>}
                 </Pressable>
-              </View>
+              </>
             ) : (
               <>
-                {(mode === 'login' || mode === 'signup') && (
-                  <View style={styles.modeSelector} accessibilityRole="tablist">
-                    <Pressable
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: mode === 'login' }}
-                      onPress={() => changeMode('login')}
-                      style={[styles.modeTab, mode === 'login' && styles.modeTabActive]}
-                    >
-                      <Text style={[styles.modeTabText, mode === 'login' && styles.modeTabTextActive]}>Log in</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: mode === 'signup' }}
-                      onPress={() => changeMode('signup')}
-                      style={[styles.modeTab, mode === 'signup' && styles.modeTabActive]}
-                    >
-                      <Text style={[styles.modeTabText, mode === 'signup' && styles.modeTabTextActive]}>Create account</Text>
-                    </Pressable>
-                  </View>
-                )}
-
-                {mode === 'reset' && (
-                  <Pressable onPress={() => changeMode('login')} style={styles.backLink} accessibilityRole="button">
-                    <ArrowLeft size={15} color={colors.inkSoft} />
-                    <Text style={styles.backLinkText}>Back to log in</Text>
-                  </Pressable>
-                )}
-
-                <View style={styles.form}>
-                  <Text style={styles.label}>EMAIL ADDRESS</Text>
-                  <View style={styles.inputWrap}>
-                    <Mail color={colors.muted} size={18} />
-                    <TextInput
-                      accessibilityLabel="Email address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      onChangeText={setEmail}
-                      onSubmitEditing={() => mode === 'reset' ? void handleSubmit() : undefined}
-                      placeholder="you@example.com"
-                      placeholderTextColor={colors.muted}
-                      returnKeyType={mode === 'reset' ? 'send' : 'next'}
-                      style={styles.input}
-                      textContentType="emailAddress"
-                      value={email}
-                    />
-                  </View>
-
-                  {mode !== 'reset' && (
-                    <>
-                      <View style={styles.passwordLabelRow}>
-                        <Text style={styles.label}>{mode === 'recovery' ? 'NEW PASSWORD' : 'PASSWORD'}</Text>
-                        {mode === 'login' && (
-                          <Pressable onPress={() => changeMode('reset')} accessibilityRole="button">
-                            <Text style={styles.forgotLink}>Forgot password?</Text>
-                          </Pressable>
-                        )}
-                      </View>
-                      <View style={styles.inputWrap}>
-                        <LockKeyhole color={colors.muted} size={18} />
-                        <TextInput
-                          accessibilityLabel={mode === 'recovery' ? 'New password' : 'Password'}
-                          autoCapitalize="none"
-                          autoComplete={mode === 'signup' ? 'new-password' : 'password'}
-                          onChangeText={setPassword}
-                          onSubmitEditing={() => mode === 'login' ? void handleSubmit() : undefined}
-                          placeholder={mode === 'recovery' || mode === 'signup' ? 'At least 8 characters' : 'Your password'}
-                          placeholderTextColor={colors.muted}
-                          returnKeyType={mode === 'login' ? 'go' : 'next'}
-                          secureTextEntry
-                          style={styles.input}
-                          textContentType={mode === 'signup' || mode === 'recovery' ? 'newPassword' : 'password'}
-                          value={password}
-                        />
-                      </View>
-                    </>
-                  )}
-
-                  {(mode === 'signup' || mode === 'recovery') && (
-                    <>
-                      <Text style={styles.label}>CONFIRM PASSWORD</Text>
-                      <View style={styles.inputWrap}>
-                        <LockKeyhole color={colors.muted} size={18} />
-                        <TextInput
-                          accessibilityLabel="Confirm password"
-                          autoCapitalize="none"
-                          autoComplete="new-password"
-                          onChangeText={setConfirmPassword}
-                          onSubmitEditing={() => void handleSubmit()}
-                          placeholder="Enter your password again"
-                          placeholderTextColor={colors.muted}
-                          returnKeyType="go"
-                          secureTextEntry
-                          style={styles.input}
-                          textContentType="newPassword"
-                          value={confirmPassword}
-                        />
-                      </View>
-                    </>
-                  )}
-
-                  {notice && (
-                    <View
-                      accessibilityRole="alert"
-                      style={[styles.message, notice.kind === 'error' ? styles.messageError : styles.messageSuccess]}
-                    >
-                      <Text style={[styles.messageText, notice.kind === 'error' ? styles.messageErrorText : styles.messageSuccessText]}>
-                        {notice.text}
-                      </Text>
-                    </View>
-                  )}
-
-                  <Pressable
-                    accessibilityRole="button"
-                    disabled={submitting || !isSupabaseConfigured}
-                    onPress={() => void handleSubmit()}
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      pressed && styles.primaryButtonPressed,
-                      (submitting || !isSupabaseConfigured) && styles.disabled,
-                    ]}
-                  >
-                    {submitting
-                      ? <ActivityIndicator color={colors.white} />
-                      : <Text style={styles.primaryButtonText}>
-                          {mode === 'signup' ? 'Create my account' : mode === 'reset' ? 'Send reset link' : mode === 'recovery' ? 'Update password' : 'Log in to Wingdex'}
-                        </Text>}
-                    {!submitting && <ArrowUpRight color={colors.white} size={18} />}
-                  </Pressable>
-
-                  {mode === 'signup' && (
-                    <Text style={styles.privacyNote}>Your email stays yours. We’ll only use it to protect your account.</Text>
-                  )}
-                  {mode === 'reset' && (
-                    <Text style={styles.privacyNote}>For your privacy, we’ll show the same confirmation either way.</Text>
-                  )}
-                </View>
+                <View style={styles.signedInMark}><Leaf color={colors.ink} size={22} /></View>
+                <Text style={styles.panelEyebrow}>YOUR FIELD JOURNAL</Text>
+                <Text style={styles.panelTitle}>Make room for every bird you find.</Text>
+                <Text style={styles.accountCopy}>
+                  Sign in or create an account to keep your Wingdex journal with you.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push('/auth')}
+                  style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
+                >
+                  <Text style={styles.primaryButtonText}>Sign in or create account</Text>
+                  <ArrowUpRight color={colors.white} size={18} />
+                </Pressable>
               </>
             )}
-
-            <View style={styles.footer}>
-              <View style={styles.footerRule} />
-              <Text style={styles.footerText}>MADE FOR THE MOMENTS BETWEEN WINGS</Text>
-            </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          <View style={styles.footer}>
+            <View style={styles.footerRule} />
+            <Text style={styles.footerText}>MADE FOR THE MOMENTS BETWEEN WINGS</Text>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.paper },
-  keyboard: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 26, paddingTop: 16, paddingBottom: 28 },
   contentColumn: { width: '100%', maxWidth: 560, flexGrow: 1, alignSelf: 'center' },
   loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
@@ -529,63 +206,36 @@ const styles = StyleSheet.create({
   noteIndex: { color: colors.coral, fontWeight: '700' },
   fieldNoteText: { color: colors.ink, fontSize: 13, marginTop: 5, fontWeight: '600' },
   fieldNoteMark: { color: colors.coral, fontSize: 23, marginLeft: 8 },
-  configNotice: {
-    flexDirection: 'row', gap: 11, padding: 14, marginBottom: 17,
-    borderWidth: 1, borderColor: colors.line, backgroundColor: '#F1F1E9',
+  accountPanel: {
+    paddingHorizontal: 20, paddingVertical: 23, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.line, backgroundColor: '#F2F1E9',
   },
-  noticeCopy: { flex: 1 },
-  configTitle: { color: colors.ink, fontSize: 13, fontWeight: '800', marginBottom: 4 },
-  configText: { color: colors.inkSoft, fontSize: 12, lineHeight: 18 },
-  modeSelector: {
-    flexDirection: 'row', padding: 4, backgroundColor: '#ECEEE6',
-    borderRadius: 13, marginBottom: 21,
-  },
-  modeTab: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 42, borderRadius: 10 },
-  modeTabActive: { backgroundColor: colors.white, shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 5, elevation: 1 },
-  modeTabText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
-  modeTabTextActive: { color: colors.ink },
-  backLink: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 19, minHeight: 28 },
-  backLinkText: { color: colors.inkSoft, fontSize: 13, fontWeight: '700' },
-  form: { gap: 10 },
-  label: { color: colors.inkSoft, fontSize: 10, fontWeight: '800', letterSpacing: 1.15, marginTop: 2 },
-  passwordLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 7 },
-  forgotLink: { color: colors.coral, fontSize: 12, fontWeight: '700' },
-  inputWrap: {
-    minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11,
-    paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.line,
-    backgroundColor: colors.white,
-  },
-  input: { flex: 1, minHeight: 50, color: colors.ink, fontSize: 15, paddingVertical: 0 },
-  message: { padding: 12, borderRadius: 9, marginTop: 3 },
+  message: { alignSelf: 'stretch', padding: 12, borderRadius: 9, marginBottom: 17 },
   messageError: { backgroundColor: colors.coralPale, borderWidth: 1, borderColor: '#E8C2B5' },
   messageSuccess: { backgroundColor: '#E8EFE5', borderWidth: 1, borderColor: '#C9D8C6' },
   messageText: { fontSize: 13, lineHeight: 19 },
   messageErrorText: { color: colors.danger },
   messageSuccessText: { color: colors.inkSoft },
-  primaryButton: {
-    minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginTop: 7, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.ink,
-  },
-  primaryButtonPressed: { backgroundColor: colors.inkSoft, transform: [{ scale: 0.99 }] },
-  primaryButtonText: { color: colors.white, fontSize: 14, fontWeight: '800', letterSpacing: 0.15 },
-  disabled: { opacity: 0.55 },
-  privacyNote: { color: colors.muted, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 3 },
-  accountPanel: {
-    paddingHorizontal: 20, paddingVertical: 23, alignItems: 'center',
-    borderWidth: 1, borderColor: colors.line, backgroundColor: '#F2F1E9',
-  },
   signedInMark: {
     width: 48, height: 48, borderRadius: 24, backgroundColor: colors.leaf,
     alignItems: 'center', justifyContent: 'center', marginBottom: 13,
   },
   panelEyebrow: { color: colors.muted, fontSize: 9, fontWeight: '800', letterSpacing: 1.3 },
+  panelTitle: { color: colors.ink, fontSize: 18, fontWeight: '800', marginTop: 8, textAlign: 'center' },
   accountEmail: { color: colors.ink, fontSize: 17, fontWeight: '800', marginTop: 6, textAlign: 'center' },
-  accountCopy: { color: colors.inkSoft, fontSize: 13, marginTop: 7, textAlign: 'center' },
+  accountCopy: { color: colors.inkSoft, fontSize: 13, lineHeight: 19, marginTop: 7, textAlign: 'center' },
+  primaryButton: {
+    minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    alignSelf: 'stretch', marginTop: 19, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.ink,
+  },
+  primaryButtonPressed: { backgroundColor: colors.inkSoft, transform: [{ scale: 0.99 }] },
+  primaryButtonText: { color: colors.white, fontSize: 14, fontWeight: '800', letterSpacing: 0.15 },
   secondaryButton: {
     minHeight: 45, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, borderRadius: 9, marginTop: 20,
   },
   secondaryButtonText: { color: colors.ink, fontSize: 14, fontWeight: '800' },
+  disabled: { opacity: 0.55 },
   pressed: { opacity: 0.75 },
   footer: { marginTop: 'auto', paddingTop: 36, alignItems: 'center' },
   footerRule: { height: 1, width: 48, backgroundColor: colors.leafDeep, marginBottom: 12 },

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NearbyMap } from '../../src/components/NearbyMap';
+import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
 import type { NearbyMapSighting } from '../../src/components/nearbyMapTypes';
 import { getCurrentLocation, type UserLocation } from '../../src/services/location';
 import { colors } from '../../src/theme';
@@ -114,21 +115,19 @@ export default function NearbyScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Nearby</Text>
-            <Text style={styles.subtitle}>A little closer to the wild</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push('/notifications')}
-            style={({ pressed }) => [styles.notificationButton, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Open notifications"
-          >
-            <Bell color={colors.ink} size={21} strokeWidth={2} />
-            <View style={styles.notificationDot} />
-          </Pressable>
-        </View>
+        <PageHeader
+          title="Nearby"
+          subtitle="A little closer to the wild"
+          accessory={
+            <PageHeaderAction
+              onPress={() => router.push('/notifications')}
+              accessibilityLabel="Open notifications"
+            >
+              <Bell color={colors.ink} size={21} strokeWidth={2} />
+              <View style={styles.notificationDot} />
+            </PageHeaderAction>
+          }
+        />
 
         <Pressable
           style={({ pressed }) => [styles.locationPanel, pressed && styles.pressed]}
@@ -240,30 +239,8 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 14,
     paddingBottom: 44,
-  },
-  header: {
-    minHeight: 65,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-  title: { color: colors.ink, fontSize: 31, lineHeight: 36, fontWeight: '800', letterSpacing: -0.8 },
-  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 2 },
-  notificationButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#21352C',
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   notificationDot: {
     position: 'absolute',

@@ -13,6 +13,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { birds } from '../../src/data/birds';
 import { worldBirds } from '../../src/data/world-birds';
+import { PageHeader } from '../../src/components/PageHeader';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import type { BirdObservation } from '../../src/services/collection';
 import { colors } from '../../src/theme';
@@ -84,16 +85,16 @@ export default function RanksScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.page}>
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.eyebrow}>YOUR WINGDEX JOURNEY</Text>
-              <Text style={styles.title}>A little higher</Text>
-              <Text style={styles.subtitle}>Every new bird brings your field record to life.</Text>
-            </View>
-            <View style={styles.headerMark} accessibilityElementsHidden>
-              <Feather color={colors.ink} size={22} />
-            </View>
-          </View>
+          <PageHeader
+            title="A little higher"
+            eyebrow="YOUR WINGDEX JOURNEY"
+            subtitle="Every new bird brings your field record to life."
+            accessory={
+              <View style={styles.headerMark} accessibilityElementsHidden>
+                <Feather color={colors.ink} size={22} />
+              </View>
+            }
+          />
 
           <View style={styles.progressCard}>
             <View style={styles.cardTopline}>
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 14,
     paddingBottom: 32,
   },
   page: {
@@ -292,40 +293,11 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
-  eyebrow: {
-    color: colors.inkSoft,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.6,
-    marginBottom: 5,
-  },
-  title: {
-    color: colors.ink,
-    fontSize: 31,
-    lineHeight: 37,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 3,
-  },
   headerMark: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#E8EDE4',
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
   },
   progressCard: {
     backgroundColor: colors.ink,

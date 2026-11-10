@@ -44,6 +44,12 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Wingdex saves where you spotted a bird with its observation."
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": false,

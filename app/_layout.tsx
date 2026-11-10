@@ -14,6 +14,7 @@ export default function RootLayout() {
       <StatusBar style={showSplash ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.paper } }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="auth" />
         <Stack.Screen name="bird/[id]" options={{ presentation: 'modal' }} />
       </Stack>
       {showSplash && <SplashReveal onFinish={dismissSplash} />}

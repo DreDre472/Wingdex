@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BirdRow } from '../../src/components/BirdRow';
+import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
 import { birds } from '../../src/data/birds';
 import { birdRegions, type BirdRegion } from '../../src/data/regions';
 import { worldBirds } from '../../src/data/world-birds';
@@ -203,20 +204,18 @@ export default function CollectionScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>My collection</Text>
-            <Text style={styles.subtitle}>Every bird has a story. Here’s yours.</Text>
-          </View>
-          <Pressable
-            onPress={shareCollection}
-            style={({ pressed }) => [styles.shareButton, pressed && styles.buttonPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Share collection"
-          >
-            <Share2 color={colors.ink} size={19} />
-          </Pressable>
-        </View>
+        <PageHeader
+          title="My collection"
+          subtitle="Every bird has a story. Here’s yours."
+          accessory={
+            <PageHeaderAction
+              onPress={shareCollection}
+              accessibilityLabel="Share collection"
+            >
+              <Share2 color={colors.ink} size={19} />
+            </PageHeaderAction>
+          }
+        />
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryTopline}>
@@ -421,12 +420,7 @@ export default function CollectionScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
-  content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 17, paddingBottom: 30 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  headerCopy: { flex: 1 },
-  title: { color: colors.ink, fontFamily: 'Georgia', fontSize: 29, lineHeight: 35 },
-  subtitle: { color: colors.muted, fontSize: 13, marginTop: 4 },
-  shareButton: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.white },
+  content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 30 },
   buttonPressed: { opacity: 0.72 },
   summaryCard: { backgroundColor: colors.ink, borderRadius: 22, paddingHorizontal: 17, paddingTop: 16, paddingBottom: 14, overflow: 'hidden' },
   summaryTopline: { flexDirection: 'row', alignItems: 'center' },
