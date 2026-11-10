@@ -15,6 +15,7 @@ import {
 import * as ExpoLinking from 'expo-linking';
 import { router } from 'expo-router';
 import { ArrowLeft, ArrowUpRight, Feather, Leaf, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -304,7 +305,7 @@ export default function AuthScreen() {
       ? 'Find your way back'
       : mode === 'recovery'
         ? 'Set a new password'
-        : 'Welcome back';
+        : 'Welcome';
   if (checkingSession) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -430,7 +431,24 @@ export default function AuthScreen() {
                         {submitting && oauthProvider === 'google' ? (
                           <ActivityIndicator color={colors.ink} size="small" />
                         ) : (
-                          <Text style={styles.googleMark}>G</Text>
+                          <Svg width={20} height={20} viewBox="0 0 48 48">
+                            <Path
+                              fill="#EA4335"
+                              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                            />
+                            <Path
+                              fill="#4285F4"
+                              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 3.01-2.31 5.57-4.94 7.28l7.98 6.19c4.67-4.31 7-10.65 7-17.94z"
+                            />
+                            <Path
+                              fill="#FBBC05"
+                              d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.78-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.53 2.56 10.78l7.97-6.19z"
+                            />
+                            <Path
+                              fill="#34A853"
+                              d="M24 48c6.48 0 11.93-2.13 15.91-5.81l-7.98-6.19c-2.21 1.48-5.05 2.34-7.93 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                            />
+                          </Svg>
                         )}
                         <Text style={styles.socialButtonText}>Google</Text>
                       </Pressable>
@@ -654,7 +672,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   socialButtonText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
-  googleMark: { color: '#4285F4', fontSize: 19, fontWeight: '800' },
   facebookMark: { color: '#1877F2', fontSize: 23, lineHeight: 25, fontWeight: '800' },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 19, minHeight: 28 },
   backLinkText: { color: colors.inkSoft, fontSize: 13, fontWeight: '700' },
