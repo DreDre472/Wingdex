@@ -7,6 +7,9 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1B2E26"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -38,6 +41,14 @@
           "cameraPermission": "Wingdex uses your camera to photograph birds for identification.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
         }
       ]
     ],
