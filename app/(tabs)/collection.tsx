@@ -73,6 +73,9 @@ function ObservationCard({
 }) {
   const identified = Boolean(observation.commonName);
   const region = observation.regions.filter((item) => item !== 'Unknown').join(', ');
+  const location = observation.location
+    ? `${observation.location.latitude.toFixed(5)}, ${observation.location.longitude.toFixed(5)}`
+    : null;
 
   return (
     <Pressable
@@ -101,7 +104,7 @@ function ObservationCard({
           <Text numberOfLines={1} style={styles.scientificName}>Field observation</Text>
         )}
         <Text numberOfLines={1} style={styles.observationMeta}>
-          {region ? `${region} · ` : ''}{formatObservationDate(observation.identifiedAt)}
+          {[region, location, formatObservationDate(observation.identifiedAt)].filter(Boolean).join(' · ')}
         </Text>
       </View>
       <ChevronRight color={colors.muted} size={19} />
@@ -490,4 +493,3 @@ const styles = StyleSheet.create({
   promptBody: { color: colors.muted, fontSize: 10, marginTop: 3 },
   localNote: { color: colors.muted, fontSize: 9, textAlign: 'center', marginTop: 16 },
 });
-

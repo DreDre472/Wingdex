@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
 import type { BirdRegion } from '../data/regions';
 import type { IdentificationResult } from './identification';
+import type { UserLocation } from './location';
 
 const COLLECTION_KEY = 'wingdex.collection.v1';
 const OBSERVATIONS_KEY = 'wingdex.observations.v1';
@@ -10,6 +11,7 @@ export type BirdObservation = IdentificationResult & {
   id: string;
   identifiedAt: string;
   photoUri: string | null;
+  location: UserLocation | null;
 };
 
 export async function getSavedBirdIds(): Promise<string[]> {
@@ -52,7 +54,11 @@ export async function getBirdObservations(): Promise<BirdObservation[]> {
   try {
     const parsed: unknown = JSON.parse(stored);
     return Array.isArray(parsed)
-      ? parsed.filter(isBirdObservation).map((observation) => ({ ...observation, description: observation.description ?? null }))
+      ? parsed.filter(isBirdObservation).map((observation) => ({
+          ...observation,
+          description: observation.description ?? null,
+          location: observation.location ?? null,
+        }))
       : [];
   } catch {
     return [];
@@ -61,7 +67,8 @@ export async function getBirdObservations(): Promise<BirdObservation[]> {
 
 export async function addBirdObservation(
   result: IdentificationResult,
-  selectedPhotoUri: string | null
+  selectedPhotoUri: string | null,
+  location: UserLocation | null = null,
 ): Promise<BirdObservation> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const identified = Boolean(result.commonName && result.scientificName && result.confidence >= 0.68);
@@ -86,6 +93,7 @@ export async function addBirdObservation(
     regions: identified && result.regions.length > 0 ? result.regions : ['Unknown'],
     identifiedAt: new Date().toISOString(),
     photoUri,
+    location,
   };
   const observations = await getBirdObservations();
   await AsyncStorage.setItem(OBSERVATIONS_KEY, JSON.stringify([observation, ...observations]));
@@ -102,7 +110,15 @@ function isBirdObservation(value: unknown): value is BirdObservation {
   if ('description' in value && typeof value.description !== 'string' && value.description !== null) return false;
   if (!('photoUri' in value) || (typeof value.photoUri !== 'string' && value.photoUri !== null)) return false;
   if (!('regions' in value) || !Array.isArray(value.regions)) return false;
+  if ('location' in value && value.location !== null && !isUserLocation(value.location)) return false;
 
   const regions: BirdRegion[] = ['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Oceania', 'Antarctica', 'Unknown'];
   return value.regions.every((region) => typeof region === 'string' && regions.includes(region as BirdRegion));
+}
+
+function isUserLocation(value: unknown): value is UserLocation {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('latitude' in value) || typeof value.latitude !== 'number' || !Number.isFinite(value.latitude)) return false;
+  if (!('longitude' in value) || typeof value.longitude !== 'number' || !Number.isFinite(value.longitude)) return false;
+  return value.latitude >= -90 && value.latitude <= 90 && value.longitude >= -180 && value.longitude <= 180;
 }

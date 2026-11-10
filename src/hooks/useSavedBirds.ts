@@ -9,6 +9,7 @@ import {
   type BirdObservation,
 } from '../services/collection';
 import type { IdentificationResult } from '../services/identification';
+import type { UserLocation } from '../services/location';
 
 export function useSavedBirds() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
@@ -54,9 +55,13 @@ export function useSavedBirds() {
     }
   };
 
-  const addObservation = async (result: IdentificationResult, photoUri: string | null) => {
+  const addObservation = async (
+    result: IdentificationResult,
+    photoUri: string | null,
+    location: UserLocation | null = null,
+  ) => {
     try {
-      const observation = await addBirdObservation(result, photoUri);
+      const observation = await addBirdObservation(result, photoUri, location);
       setObservations((current) => [observation, ...current]);
       setStorageError(false);
       return observation;

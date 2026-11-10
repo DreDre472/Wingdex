@@ -24,6 +24,7 @@ import {
   minimumConfidence,
   type IdentificationResult,
 } from '../../src/services/identification';
+import { getCurrentLocation, type UserLocation } from '../../src/services/location';
 import { colors } from '../../src/theme';
 
 type CapturedPhoto = {
@@ -50,6 +51,7 @@ export default function ScanScreen() {
   const [saved, setSaved] = useState(false);
   const [identificationError, setIdentificationError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
+  const [saveLocationError, setSaveLocationError] = useState<string | null>(null);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [galleryCanAskAgain, setGalleryCanAskAgain] = useState(true);
   const cameraSupportedInApp = Platform.OS !== 'web';
@@ -61,6 +63,7 @@ export default function ScanScreen() {
     setResult(null);
     setIdentificationError(null);
     setSaveError(false);
+    setSaveLocationError(null);
     setSaved(false);
     setIdentifying(true);
 
@@ -151,9 +154,18 @@ export default function ScanScreen() {
     if (!result || !photo || saving || saved) return;
     setSaving(true);
     setSaveError(false);
+    setSaveLocationError(null);
 
     try {
-      await addObservation(result, photo.uri);
+      let location: UserLocation | null = null;
+      try {
+        location = await getCurrentLocation();
+      } catch (error) {
+        setSaveLocationError(
+          error instanceof Error ? error.message : 'Location was unavailable for this sighting.',
+        );
+      }
+      await addObservation(result, photo.uri, location);
       setSaved(true);
     } catch {
       setSaveError(true);
@@ -167,6 +179,7 @@ export default function ScanScreen() {
     setResult(null);
     setIdentificationError(null);
     setSaveError(false);
+    setSaveLocationError(null);
     setSaved(false);
     setCameraReady(false);
   };
@@ -379,6 +392,11 @@ export default function ScanScreen() {
                   </Pressable>
                   {saveError && (
                     <Text style={styles.saveError}>Couldn’t save. Please try again.</Text>
+                  )}
+                  {saved && saveLocationError && (
+                    <Text style={styles.saveError}>
+                      Saved without location. {saveLocationError}
+                    </Text>
                   )}
                 </View>
               </View>

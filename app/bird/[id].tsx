@@ -152,6 +152,12 @@ function ObservationDetailView({ observation, guideBird }: { observation: BirdOb
               <Text style={observationStyles.metaValue}>{observation.regions.join(', ') || 'Unknown'}</Text>
               <Text style={observationStyles.metaLabel}>RECORDED</Text>
               <Text style={observationStyles.metaValue}>{new Date(observation.identifiedAt).toLocaleString()}</Text>
+              <Text style={observationStyles.metaLabel}>LOCATION</Text>
+              <Text style={observationStyles.metaValue}>
+                {observation.location
+                  ? `${observation.location.latitude.toFixed(5)}, ${observation.location.longitude.toFixed(5)}`
+                  : 'No location saved'}
+              </Text>
               {observation.commonName && (
                 <>
                   <Text style={observationStyles.metaLabel}>IDENTIFICATION CONFIDENCE</Text>
