@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { GoogleGenAI } from '@google/genai';
 import { createApp } from './app.js';
 import { createGeminiIdentifier } from './gemini.js';
+import { getSupabaseClient } from './supabase.js';
 
 const apiKey = process.env.GEMINI_API_KEY?.trim();
 if (!apiKey) {
@@ -17,6 +18,10 @@ const client = new GoogleGenAI({ apiKey });
 const app = createApp({
   identifyPhoto: createGeminiIdentifier(client, process.env.GEMINI_MODEL ?? 'gemini-flash-latest'),
   corsOrigins: process.env.CORS_ORIGIN,
+  admin: {
+    getSupabase: getSupabaseClient,
+    adminUserIds: process.env.ADMIN_USER_IDS,
+  },
 });
 
 app.listen(port, '0.0.0.0', () => {

@@ -3,9 +3,36 @@ import { Directory, File, Paths } from 'expo-file-system';
 import type { BirdRegion } from '../data/regions';
 import type { IdentificationResult } from './identification';
 import type { UserLocation } from './location';
+import { getCollectionStorageKeys } from './collectionKeys';
 
-const COLLECTION_KEY = 'wingdex.collection.v1';
-const OBSERVATIONS_KEY = 'wingdex.observations.v1';
+const COLLECTION_OWNER_KEY = 'wingdex.collection.owner.v1';
+let activeCollectionUserId: string | null = null;
+
+export function currentCollectionStorageKeys(userId?: string | null) {
+  return getCollectionStorageKeys(userId === undefined ? activeCollectionUserId : userId);
+}
+
+export async function setCollectionUser(userId: string | null): Promise<void> {
+  const nextUserId = userId?.trim() || null;
+  if (nextUserId === activeCollectionUserId) return;
+  if (!nextUserId) {
+    activeCollectionUserId = null;
+    return;
+  }
+
+  activeCollectionUserId = nextUserId;
+  const ownerId = await AsyncStorage.getItem(COLLECTION_OWNER_KEY);
+  if (!ownerId || ownerId === nextUserId) {
+    const legacy = getCollectionStorageKeys(null);
+    const scoped = getCollectionStorageKeys(nextUserId);
+    for (const key of Object.keys(legacy) as (keyof typeof legacy)[]) {
+      if (await AsyncStorage.getItem(scoped[key]) !== null) continue;
+      const previousValue = await AsyncStorage.getItem(legacy[key]);
+      if (previousValue !== null) await AsyncStorage.setItem(scoped[key], previousValue);
+    }
+    if (!ownerId) await AsyncStorage.setItem(COLLECTION_OWNER_KEY, nextUserId);
+  }
+}
 
 export type BirdObservation = IdentificationResult & {
   id: string;
@@ -14,8 +41,8 @@ export type BirdObservation = IdentificationResult & {
   location: UserLocation | null;
 };
 
-export async function getSavedBirdIds(): Promise<string[]> {
-  const stored = await AsyncStorage.getItem(COLLECTION_KEY);
+export async function getSavedBirdIds(userId?: string): Promise<string[]> {
+  const stored = await AsyncStorage.getItem(currentCollectionStorageKeys(userId).savedBirds);
   if (!stored) return [];
 
   try {
@@ -34,7 +61,12 @@ export async function toggleSavedBird(id: string): Promise<string[]> {
     ? current.filter((savedId) => savedId !== id)
     : [...current, id];
 
-  await AsyncStorage.setItem(COLLECTION_KEY, JSON.stringify(next));
+  await AsyncStorage.setItem(currentCollectionStorageKeys().savedBirds, JSON.stringify(next));
+  const removed = await getRemovedSavedBirdIds();
+  const nextRemoved = current.includes(id)
+    ? [...new Set([...removed, id])]
+    : removed.filter((removedId) => removedId !== id);
+  await AsyncStorage.setItem(currentCollectionStorageKeys().removedSavedBirds, JSON.stringify(nextRemoved));
   return next;
 }
 
@@ -43,12 +75,41 @@ export async function addSavedBird(id: string): Promise<string[]> {
   if (current.includes(id)) return current;
 
   const next = [...current, id];
-  await AsyncStorage.setItem(COLLECTION_KEY, JSON.stringify(next));
+  await AsyncStorage.setItem(currentCollectionStorageKeys().savedBirds, JSON.stringify(next));
+  const removed = await getRemovedSavedBirdIds();
+  if (removed.includes(id)) {
+    await AsyncStorage.setItem(
+      currentCollectionStorageKeys().removedSavedBirds,
+      JSON.stringify(removed.filter((removedId) => removedId !== id)),
+    );
+  }
   return next;
 }
 
-export async function getBirdObservations(): Promise<BirdObservation[]> {
-  const stored = await AsyncStorage.getItem(OBSERVATIONS_KEY);
+export async function getRemovedSavedBirdIds(userId?: string): Promise<string[]> {
+  const stored = await AsyncStorage.getItem(currentCollectionStorageKeys(userId).removedSavedBirds);
+  if (!stored) return [];
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function clearRemovedSavedBirdIds(ids: string[], userId?: string): Promise<void> {
+  const removed = await getRemovedSavedBirdIds(userId);
+  const completed = new Set(ids);
+  await AsyncStorage.setItem(
+    currentCollectionStorageKeys(userId).removedSavedBirds,
+    JSON.stringify(removed.filter((id) => !completed.has(id))),
+  );
+}
+
+export async function getBirdObservations(userId?: string): Promise<BirdObservation[]> {
+  const stored = await AsyncStorage.getItem(currentCollectionStorageKeys(userId).observations);
   if (!stored) return [];
 
   try {
@@ -96,7 +157,7 @@ export async function addBirdObservation(
     location,
   };
   const observations = await getBirdObservations();
-  await AsyncStorage.setItem(OBSERVATIONS_KEY, JSON.stringify([observation, ...observations]));
+  await AsyncStorage.setItem(currentCollectionStorageKeys().observations, JSON.stringify([observation, ...observations]));
   return observation;
 }
 

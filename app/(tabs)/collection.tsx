@@ -119,7 +119,7 @@ export default function CollectionScreen() {
   const [region, setRegion] = useState<'All' | BirdRegion>('All');
   const [query, setQuery] = useState('');
   const [newestFirst, setNewestFirst] = useState(true);
-  const { observations, savedIds, storageError, toggle } = useSavedBirds();
+  const { observations, savedIds, storageError, syncError, syncing, retrySync, toggle } = useSavedBirds();
 
   const latestObservationTime = useMemo(
     () => Math.max(0, ...observations.map(observationTime)),
@@ -262,6 +262,30 @@ export default function CollectionScreen() {
             Your local collection could not be read or updated. Please try again.
           </Text>
         )}
+
+        <View style={styles.syncNotice}>
+          <View style={styles.syncCopy}>
+            <Text style={styles.syncTitle}>
+              {syncing ? 'Syncing your field journal…' : syncError ? 'Cloud sync is waiting' : 'Your field journal stays yours'}
+            </Text>
+            <Text style={styles.syncDetail}>
+              {syncError
+                ? 'Your local notes are safe. Retry when you’re back online.'
+                : 'Sightings and saved birds sync when online. Photos remain on this device.'}
+            </Text>
+          </View>
+          {syncError && (
+            <Pressable
+              onPress={() => void retrySync()}
+              disabled={syncing}
+              style={({ pressed }) => [styles.syncAction, pressed && styles.buttonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Retry collection cloud sync"
+            >
+              <Text style={styles.syncActionText}>Retry</Text>
+            </Pressable>
+          )}
+        </View>
 
         <View style={styles.searchBox}>
           <Search color={colors.muted} size={18} />
@@ -442,6 +466,12 @@ const styles = StyleSheet.create({
   dateContext: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dateText: { color: '#D0DDD3', fontSize: 11 },
   error: { color: colors.danger, fontSize: 12, lineHeight: 17, marginTop: 11 },
+  syncNotice: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, marginTop: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.line, backgroundColor: '#EFF3EC' },
+  syncCopy: { flex: 1 },
+  syncTitle: { color: colors.ink, fontSize: 12, fontWeight: '700' },
+  syncDetail: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  syncAction: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 9, backgroundColor: colors.ink },
+  syncActionText: { color: colors.white, fontSize: 10, fontWeight: '700' },
   searchBox: { minHeight: 45, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 13, marginTop: 17, borderWidth: 1, borderColor: colors.line, borderRadius: 13, backgroundColor: colors.white },
   searchInput: { flex: 1, minWidth: 0, color: colors.ink, fontSize: 13, paddingVertical: 9 },
   filters: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 13, paddingBottom: 3 },

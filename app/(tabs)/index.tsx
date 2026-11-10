@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Image,
   Modal,
@@ -9,12 +9,13 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { ArrowUpRight, Bell, Check, ChevronDown, ChevronRight, Circle, Feather, Search, User, X } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { birdImages } from '../../src/data/bird-images';
 import { birds, getDailyFeaturedBird } from '../../src/data/birds';
 import { initialNotifications } from '../../src/data/notifications';
+import { getPublishedAnnouncements, type AppAnnouncement } from '../../src/services/adminContent';
 import { worldBirds } from '../../src/data/world-birds';
 import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
 import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
@@ -24,6 +25,7 @@ import { colors } from '../../src/theme';
 export default function IdentifyScreen() {
   const { savedIds, observations } = useSavedBirds();
   const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [announcements, setAnnouncements] = useState<AppAnnouncement[]>([]);
   const [featured, setFeatured] = useState(() => getDailyFeaturedBird());
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -65,6 +67,29 @@ export default function IdentifyScreen() {
     const timer = setTimeout(() => setFeatured(getDailyFeaturedBird()), nextLocalMidnight.getTime() - now.getTime());
     return () => clearTimeout(timer);
   }, [featured]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getPublishedAnnouncements()
+      .then((items) => {
+        if (active) setAnnouncements(items);
+      })
+      .catch(() => {
+        if (active) setAnnouncements([]);
+      });
+    return () => { active = false; };
+  }, []));
+
+  const previewItems = [
+    ...announcements.map((announcement) => ({
+      id: announcement.id,
+      kind: 'announcement' as const,
+      title: announcement.title,
+      detail: announcement.body,
+      unread: true,
+    })),
+    ...initialNotifications,
+  ].slice(0, 3);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -282,13 +307,13 @@ export default function IdentifyScreen() {
               <X color={colors.ink} size={20} strokeWidth={2.2} />
             </Pressable>
           </View>
-          <Text style={styles.previewNote}>A little field-journal activity, saved locally.</Text>
+          <Text style={styles.previewNote}>Fresh notes from Wingdex, alongside your field-journal activity.</Text>
           <ScrollView
             style={styles.previewList}
             contentContainerStyle={styles.previewListContent}
             showsVerticalScrollIndicator={false}
           >
-            {initialNotifications.slice(0, 3).map((item) => (
+            {previewItems.map((item) => (
               <View key={item.id} style={styles.previewItem}>
                 <View style={styles.previewIcon}>
                   <NotificationKindIcon kind={item.kind} size={20} />
@@ -300,7 +325,7 @@ export default function IdentifyScreen() {
                 {item.unread && <View style={styles.previewUnreadDot} accessibilityLabel="Unread" />}
               </View>
             ))}
-            {initialNotifications.length === 0 && (
+            {previewItems.length === 0 && (
               <Text style={styles.previewEmpty}>You’re all caught up. No notifications just yet.</Text>
             )}
           </ScrollView>

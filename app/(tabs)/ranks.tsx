@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { router } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ArrowRight,
   Bird,
@@ -16,6 +16,7 @@ import { worldBirds } from '../../src/data/world-birds';
 import { PageHeader } from '../../src/components/PageHeader';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import type { BirdObservation } from '../../src/services/collection';
+import { getPublishedBadges, getPublishedRanks, type AppBadge, type AppRank } from '../../src/services/adminContent';
 import { colors } from '../../src/theme';
 
 const knownSpecies = new Map<string, string>();
@@ -53,7 +54,26 @@ function formatCount(count: number, singular: string, plural = `${singular}s`) {
 }
 
 export default function RanksScreen() {
-  const { observations, savedIds, storageError } = useSavedBirds();
+  const { observations, savedIds, storageError, syncError, syncing, retrySync } = useSavedBirds();
+  const [publishedBadges, setPublishedBadges] = useState<AppBadge[]>([]);
+  const [publishedRanks, setPublishedRanks] = useState<AppRank[]>([]);
+  const [contentError, setContentError] = useState(false);
+  const [contentLoaded, setContentLoaded] = useState(false);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    Promise.all([getPublishedBadges(), getPublishedRanks()])
+      .then(([badges, ranks]) => {
+        if (!active) return;
+        setPublishedBadges(badges);
+        setPublishedRanks(ranks);
+        setContentLoaded(true);
+        setContentError(false);
+      })
+      .catch(() => {
+        if (active) setContentError(true);
+      });
+    return () => { active = false; };
+  }, []));
   const identifiedSpecies = useMemo(() => {
     const result = new Set<string>();
     observations.forEach((observation) => {
@@ -65,18 +85,33 @@ export default function RanksScreen() {
   }, [observations]);
 
   const speciesCount = identifiedSpecies.size;
-  const currentTier = [...progressTiers].reverse().find((tier) => speciesCount >= tier.threshold);
-  const nextTier = progressTiers.find((tier) => speciesCount < tier.threshold)
-    ?? {
+  const visibleRanks = contentLoaded ? publishedRanks : progressTiers;
+  const currentTier = [...visibleRanks].reverse().find((tier) => speciesCount >= tier.threshold);
+  const nextTier = visibleRanks.find((tier) => speciesCount < tier.threshold)
+    ?? (!contentLoaded ? {
       threshold: Math.ceil((speciesCount + 1) / 100) * 100,
       title: 'Field record milestone',
-    };
+    } : null);
   const previousThreshold = currentTier?.threshold ?? 0;
-  const progress = Math.max(
+  const progress = nextTier ? Math.max(
     0,
     Math.min(1, (speciesCount - previousThreshold) / (nextTier.threshold - previousThreshold))
-  );
-  const remaining = Math.max(0, nextTier.threshold - speciesCount);
+  ) : 1;
+  const remaining = nextTier ? Math.max(0, nextTier.threshold - speciesCount) : 0;
+  const visibleBadges = contentLoaded ? publishedBadges : milestones.map((milestone) => ({
+    id: String(milestone.threshold),
+    title: milestone.title,
+    description: milestone.detail,
+    threshold: milestone.threshold,
+    rule_type: 'unique_species' as const,
+  }));
+  const earnedBadges = visibleBadges.filter((badge) => (
+    badge.rule_type === 'observations'
+      ? observations.length >= badge.threshold
+      : badge.rule_type === 'saved_species'
+        ? savedIds.length >= badge.threshold
+        : speciesCount >= badge.threshold
+  )).length;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -104,7 +139,9 @@ export default function RanksScreen() {
               </View>
               <View style={styles.cardHeading}>
                 <Text style={styles.cardEyebrow}>PERSONAL FIELD PROGRESS</Text>
-                <Text style={styles.tierTitle}>{currentTier?.title ?? 'A field journal begins'}</Text>
+                <Text style={styles.tierTitle}>
+                  {currentTier?.title ?? (contentLoaded ? 'No published rank' : 'A field journal begins')}
+                </Text>
               </View>
               <Sparkles color={colors.yellow} size={19} />
             </View>
@@ -117,24 +154,22 @@ export default function RanksScreen() {
               </View>
             </View>
 
-            <View
+            {nextTier && <View
               style={styles.progressTrack}
               accessible
               accessibilityRole="progressbar"
-              accessibilityLabel={`Progress to ${nextTier.title}`}
+              accessibilityLabel={nextTier ? `Progress to ${nextTier.title}` : 'No published ranks'}
               accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
             >
               <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-            </View>
-            <View style={styles.progressFooter}>
-              <Text style={styles.progressLabel}>
-                {formatCount(speciesCount, 'species', 'species')} so far
-              </Text>
-              <Text style={styles.progressLabel}>
-                {formatCount(remaining, 'more species', 'more species')} to {nextTier.title}
-              </Text>
-            </View>
-            <Text style={styles.privateLabel}>A PRIVATE MILESTONE · SAVED ON THIS DEVICE</Text>
+            </View>}
+            {nextTier ? (
+              <View style={styles.progressFooter}>
+                <Text style={styles.progressLabel}>{formatCount(speciesCount, 'species', 'species')} so far</Text>
+                <Text style={styles.progressLabel}>{formatCount(remaining, 'more species', 'more species')} to {nextTier.title}</Text>
+              </View>
+            ) : <Text style={styles.noContentLabel}>No ranks are published right now.</Text>}
+            <Text style={styles.privateLabel}>YOUR COLLECTION · PROGRESS FROM FIELD NOTES</Text>
           </View>
 
           {storageError && (
@@ -152,6 +187,28 @@ export default function RanksScreen() {
                 <ArrowRight color={colors.danger} size={15} />
               </Pressable>
             </View>
+          )}
+
+          {syncError && (
+            <View style={styles.errorNotice} accessibilityRole="alert">
+              <Text style={styles.errorTitle}>Cloud sync needs another try</Text>
+              <Text style={styles.errorText}>Your collection is still saved on this device.</Text>
+              <Pressable
+                onPress={() => void retrySync()}
+                disabled={syncing}
+                style={({ pressed }) => [styles.errorAction, pressed && styles.pressed]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.errorActionText}>{syncing ? 'Syncing…' : 'Retry sync'}</Text>
+                <ArrowRight color={colors.danger} size={15} />
+              </Pressable>
+            </View>
+          )}
+
+          {contentError && (
+            <Text style={styles.contentNotice} accessibilityRole="alert">
+              Published badges and ranks couldn’t be refreshed. Your field record remains available.
+            </Text>
           )}
 
           <View style={styles.recordSection}>
@@ -223,16 +280,20 @@ export default function RanksScreen() {
                 <Text style={styles.sectionSubtitle}>Personal collection milestones</Text>
               </View>
               <Text style={styles.earnedCount}>
-                {milestones.filter((milestone) => speciesCount >= milestone.threshold).length} / {milestones.length}
+                {earnedBadges} / {visibleBadges.length}
               </Text>
             </View>
 
             <View style={styles.badges}>
-              {milestones.map((milestone) => {
-                const earned = speciesCount >= milestone.threshold;
+              {visibleBadges.map((milestone) => {
+                const earned = milestone.rule_type === 'observations'
+                  ? observations.length >= milestone.threshold
+                  : milestone.rule_type === 'saved_species'
+                    ? savedIds.length >= milestone.threshold
+                    : speciesCount >= milestone.threshold;
                 return (
                   <View
-                    key={milestone.threshold}
+                    key={milestone.id}
                     style={[styles.badgeCard, earned && styles.badgeCardEarned]}
                   >
                     <View style={[styles.badgeMark, earned && styles.badgeMarkEarned]}>
@@ -241,36 +302,41 @@ export default function RanksScreen() {
                         : <LockKeyhole color={colors.muted} size={16} />}
                     </View>
                     <Text style={styles.badgeTitle}>{milestone.title}</Text>
-                    <Text style={styles.badgeDetail}>{milestone.detail}</Text>
+                    <Text style={styles.badgeDetail}>{milestone.description}</Text>
                     <Text style={[styles.badgeState, earned && styles.badgeStateEarned]}>
                       {earned ? 'ADDED TO YOUR RECORD' : `${milestone.threshold} SPECIES`}
                     </Text>
                   </View>
                 );
               })}
+              {visibleBadges.length === 0 && (
+                <Text style={styles.noContentLabel}>No badges are published right now.</Text>
+              )}
             </View>
           </View>
 
-          <View style={styles.nextCard}>
-            <View style={styles.nextIcon}>
-              <Feather color={colors.ink} size={20} />
+          {nextTier && (
+            <View style={styles.nextCard}>
+              <View style={styles.nextIcon}>
+                <Feather color={colors.ink} size={20} />
+              </View>
+              <View style={styles.nextCopy}>
+                <Text style={styles.nextEyebrow}>NEXT FIELD MILESTONE</Text>
+                <Text style={styles.nextTitle}>{nextTier.title}</Text>
+                <Text style={styles.nextDetail}>
+                  {formatCount(remaining, 'more identified species', 'more identified species')} to reach {nextTier.threshold}.
+                </Text>
+              </View>
+              <View style={styles.nextCount}>
+                <Text style={styles.nextCountValue}>{speciesCount}</Text>
+                <View style={styles.nextCountDivider} />
+                <Text style={styles.nextCountTarget}>{nextTier.threshold}</Text>
+              </View>
             </View>
-            <View style={styles.nextCopy}>
-              <Text style={styles.nextEyebrow}>NEXT FIELD MILESTONE</Text>
-              <Text style={styles.nextTitle}>{nextTier.title}</Text>
-              <Text style={styles.nextDetail}>
-                {formatCount(remaining, 'more identified species', 'more identified species')} to reach {nextTier.threshold}.
-              </Text>
-            </View>
-            <View style={styles.nextCount}>
-              <Text style={styles.nextCountValue}>{speciesCount}</Text>
-              <View style={styles.nextCountDivider} />
-              <Text style={styles.nextCountTarget}>{nextTier.threshold}</Text>
-            </View>
-          </View>
+          )}
 
           <Text style={styles.privacyNote}>
-            Your milestones reflect identified birds in this device’s saved collection. They’re private to you.
+            Progress is calculated from your collection. Published badge and rank definitions come from Wingdex.
           </Text>
         </View>
       </ScrollView>
@@ -429,6 +495,18 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 12,
     fontWeight: '700',
+  },
+  contentNotice: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 18,
+  },
+  noContentLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    paddingVertical: 8,
   },
   recordSection: {
     marginBottom: 22,

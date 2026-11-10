@@ -2,7 +2,9 @@ import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import rateLimit from 'express-rate-limit';
 import multer, { MulterError } from 'multer';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IdentificationResult } from './gemini.js';
+import { createAdminRouter } from './admin.js';
 
 const maximumPhotoBytes = 10 * 1024 * 1024;
 const supportedMimeTypes = new Set([
@@ -23,6 +25,10 @@ class UnsupportedImageError extends Error {}
 export function createApp(options: {
   identifyPhoto: IdentifyPhoto;
   corsOrigins?: string;
+  admin?: {
+    getSupabase?: () => SupabaseClient;
+    adminUserIds?: string;
+  };
 }) {
   const app = express();
   const upload = multer({
@@ -43,9 +49,22 @@ export function createApp(options: {
     legacyHeaders: false,
     message: { error: 'Too many identification requests. Try again later.' },
   });
+  const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 120,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many admin requests. Try again shortly.' },
+  });
+  const allowedOrigins = options.corsOrigins
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-  app.use(cors({ origin: options.corsOrigins?.split(',').map((origin) => origin.trim()) ?? '*' }));
+  app.use(cors({ origin: allowedOrigins?.length ? allowedOrigins : '*' }));
+  app.use(express.json({ limit: '32kb' }));
   app.get('/health', (_request, response) => response.json({ status: 'ok' }));
+  app.use('/admin', adminLimiter, createAdminRouter(options.admin));
   app.post('/identify', identifyLimiter, upload.single('photo'), async (request, response, next) => {
     if (!request.file) {
       response.status(400).json({ error: 'Choose a photo to identify.' });

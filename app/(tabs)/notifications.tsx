@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
 import { initialNotifications } from '../../src/data/notifications';
+import { getPublishedAnnouncements, type AppAnnouncement } from '../../src/services/adminContent';
 import { colors } from '../../src/theme';
 
 type NotificationFilter = 'all' | 'unread' | 'following';
@@ -24,6 +25,7 @@ export default function NotificationsScreen() {
   const [filter, setFilter] = useState<NotificationFilter>('all');
   const [fieldUnread, setFieldUnread] = useState(true);
   const [items, setItems] = useState(initialNotifications);
+  const [announcementError, setAnnouncementError] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [systemNotice, setSystemNotice] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<NotificationPreferences>({
@@ -31,6 +33,27 @@ export default function NotificationsScreen() {
     collectionMilestones: true,
     followingActivity: false,
   });
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getPublishedAnnouncements()
+      .then((announcements) => {
+        if (!active) return;
+        const publishedItems = announcements.map((announcement: AppAnnouncement) => ({
+          id: `announcement-${announcement.id}`,
+          kind: 'announcement' as const,
+          title: announcement.title,
+          detail: announcement.body,
+          unread: true,
+        }));
+        setItems([...publishedItems, ...initialNotifications]);
+        setAnnouncementError(false);
+      })
+      .catch(() => {
+        if (active) setAnnouncementError(true);
+      });
+    return () => { active = false; };
+  }, []));
 
   const unreadCount = items.filter((item) => item.unread).length + (fieldUnread ? 1 : 0);
   const filteredItems = useMemo(() => items.filter((item) => {
@@ -89,11 +112,17 @@ export default function NotificationsScreen() {
         </View>
 
         <View style={styles.dateRow}>
-          <Text style={styles.dateTitle}>Today, October 24</Text>
+          <Text style={styles.dateTitle}>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</Text>
           <Pressable onPress={markAllRead} disabled={unreadCount === 0} accessibilityRole="button" accessibilityLabel="Mark all notifications as read" style={({ pressed }) => [styles.markRead, unreadCount === 0 && styles.markReadDisabled, pressed && styles.pressed]}>
             <Text style={styles.markReadText}>{unreadCount ? 'Mark all as read' : 'All caught up'}</Text>
           </Pressable>
         </View>
+
+        {announcementError && (
+          <Text accessibilityRole="alert" style={styles.announcementError}>
+            Wingdex announcements couldn’t be refreshed. Your local notifications are still available.
+          </Text>
+        )}
 
         {filter !== 'following' && (filter !== 'unread' || fieldUnread) && (
           <View style={styles.weatherCard}>
@@ -239,6 +268,7 @@ const styles = StyleSheet.create({
   filterTextSelected: { color: colors.white },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 31, marginBottom: 15 },
   dateTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 20, fontWeight: '700' },
+  announcementError: { color: colors.danger, fontSize: 12, lineHeight: 17, marginTop: 12 },
   markRead: { minHeight: 36, justifyContent: 'center' }, markReadDisabled: { opacity: 0.55 },
   markReadText: { color: '#256446', fontSize: 14, fontWeight: '700' },
   weatherCard: { padding: 27, borderRadius: 35, borderWidth: 1, borderColor: '#C9DAC5', backgroundColor: colors.white },

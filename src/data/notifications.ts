@@ -1,4 +1,4 @@
-export type NotificationKind = 'achievement' | 'collection' | 'following';
+export type NotificationKind = 'achievement' | 'collection' | 'following' | 'announcement';
 
 export type InboxItem = {
   id: string;
