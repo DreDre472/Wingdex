@@ -1,6 +1,11 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type SupabaseClientOptions } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 let client: SupabaseClient | undefined;
+
+type SupabaseRealtimeTransport = NonNullable<
+  SupabaseClientOptions<string>['realtime']
+>['transport'];
 
 export function getSupabaseClient(): SupabaseClient {
   if (client) {
@@ -24,6 +29,10 @@ export function getSupabaseClient(): SupabaseClient {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      // ws has Node-specific event types but is compatible with this transport at runtime.
+      transport: WebSocket as unknown as SupabaseRealtimeTransport,
     },
   });
 

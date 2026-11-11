@@ -101,6 +101,8 @@ The app shows its splash screen first, then requires a valid Supabase session be
 
 The web-only operator console lives in `admin/` and is a separate Vite + React build surface. It signs operators in with Supabase Auth using the public publishable key, then waits for the backend to validate the access token and match the verified user ID against `ADMIN_USER_IDS` before showing any admin data. No client role or profile metadata grants access. All `/admin/*` API calls repeat this check and use the backend-only Supabase secret key. Missing/invalid allowlist configuration disables admin access.
 
+See the dedicated [Admin Portal README](./admin/README.md) for setup, local development, deployment, access-control, and collection-sync instructions.
+
 1. Apply the migration above and create or invite operator accounts through Supabase Auth.
 2. Add each approved account’s UUID to `backend/.env` as `ADMIN_USER_IDS`. Do not add a role field to client metadata as an authorization shortcut.
 3. Configure `admin/.env.local` from [`admin/.env.example`](./admin/.env.example) with `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and `VITE_ADMIN_API_URL` (local default `http://localhost:3001`). These are browser-visible values; never add a secret/service-role key to the admin package.

@@ -43,7 +43,10 @@ describe('Supabase client configuration', () => {
     expect(createClient).toHaveBeenCalledWith(
       'https://example.supabase.co',
       'test-secret-key',
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+        realtime: { transport: expect.any(Function) },
+      }
     );
   });
 });
