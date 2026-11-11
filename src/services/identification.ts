@@ -1,6 +1,7 @@
 import { File } from 'expo-file-system';
 import { fetch } from 'expo/fetch';
 import { birdRegions, type BirdRegion } from '../data/regions';
+import type { EbirdSpecies } from './ebird';
 
 export type IdentificationResult = {
   commonName: string | null;
@@ -8,6 +9,8 @@ export type IdentificationResult = {
   description: string | null;
   confidence: number;
   regions: BirdRegion[];
+  ebirdSpecies?: EbirdSpecies | null;
+  ebirdLookupError?: string;
 };
 
 export const minimumConfidence = 0.68;
@@ -42,6 +45,17 @@ export async function identifyBird(
   const result: unknown = await response.json();
   const isBirdRegion = (region: unknown): region is BirdRegion =>
     typeof region === 'string' && birdRegions.some((knownRegion) => knownRegion === region);
+  const isEbirdSpecies = (species: unknown): species is EbirdSpecies => {
+    if (typeof species !== 'object' || species === null) return false;
+    return 'speciesCode' in species && typeof species.speciesCode === 'string'
+      && 'comName' in species && typeof species.comName === 'string'
+      && 'sciName' in species && typeof species.sciName === 'string'
+      && 'category' in species && typeof species.category === 'string'
+      && (!('familyCode' in species) || typeof species.familyCode === 'string')
+      && (!('familyComName' in species) || typeof species.familyComName === 'string')
+      && (!('familySciName' in species) || typeof species.familySciName === 'string')
+      && (!('order' in species) || typeof species.order === 'string');
+  };
 
   if (
     typeof result !== 'object' ||
@@ -59,7 +73,9 @@ export async function identifyBird(
     result.confidence > 1 ||
     !('regions' in result) ||
     !Array.isArray(result.regions) ||
-    !result.regions.every(isBirdRegion)
+    !result.regions.every(isBirdRegion) ||
+    ('ebirdSpecies' in result && result.ebirdSpecies !== null && !isEbirdSpecies(result.ebirdSpecies)) ||
+    ('ebirdLookupError' in result && typeof result.ebirdLookupError !== 'string')
   ) {
     throw new Error('The identification service returned an invalid result.');
   }
@@ -70,5 +86,7 @@ export async function identifyBird(
     description: result.description,
     confidence: result.confidence,
     regions: result.regions,
+    ...('ebirdSpecies' in result ? { ebirdSpecies: result.ebirdSpecies as EbirdSpecies | null } : {}),
+    ...('ebirdLookupError' in result ? { ebirdLookupError: result.ebirdLookupError as string } : {}),
   };
 }

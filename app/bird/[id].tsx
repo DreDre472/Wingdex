@@ -1,9 +1,16 @@
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Bookmark, BookmarkCheck, ExternalLink } from 'lucide-react-native';
+import { ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, Music2 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { birds, getBird, type Bird } from '../../src/data/birds';
 import type { BirdObservation } from '../../src/services/collection';
+import {
+  getEbirdSpecies,
+  getMacaulayAudioNameSearchUrl,
+  getMacaulayAudioSearchUrl,
+  type EbirdSpecies,
+} from '../../src/services/ebird';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors, rarityColors } from '../../src/theme';
 
@@ -14,7 +21,17 @@ export default function BirdDetailScreen() {
   }>();
   const bird = getBird(id);
   const { savedIds, observations, toggle } = useSavedBirds();
+  const [ebirdLookup, setEbirdLookup] = useState<{
+    speciesCode: string;
+    species?: EbirdSpecies;
+    error?: string;
+  } | null>(null);
   const observation = observations.find((item) => item.id === id);
+  const ebirdSpeciesCode = !bird && !observation && id && /^[a-z0-9]{2,12}$/i.test(id) ? id : null;
+  const activeEbirdLookup = ebirdSpeciesCode
+    && ebirdLookup?.speciesCode.toLowerCase() === ebirdSpeciesCode.toLowerCase()
+    ? ebirdLookup
+    : null;
   const guideBird = observation && birds.find((item) =>
     item.scientificName.toLowerCase() === observation.scientificName?.toLowerCase() ||
     item.name.toLowerCase() === observation.commonName?.toLowerCase()
@@ -27,10 +44,32 @@ export default function BirdDetailScreen() {
     )
   );
 
+  useEffect(() => {
+    if (!ebirdSpeciesCode) return;
+    let active = true;
+    getEbirdSpecies(ebirdSpeciesCode)
+      .then((species) => {
+        if (active) setEbirdLookup({ speciesCode: ebirdSpeciesCode, species });
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setEbirdLookup({
+            speciesCode: ebirdSpeciesCode,
+            error: error instanceof Error ? error.message : 'Could not load eBird species details.',
+          });
+        }
+      });
+    return () => { active = false; };
+  }, [ebirdSpeciesCode]);
+
+  if (activeEbirdLookup?.species) return <EbirdSpeciesDetail species={activeEbirdLookup.species} />;
+
   if (!bird && !observation) {
     return (
       <SafeAreaView style={styles.notFound} edges={['top', 'bottom']}>
-        <Text style={styles.notFoundTitle}>Bird not found</Text>
+        {ebirdSpeciesCode && !activeEbirdLookup
+          ? <ActivityIndicator color={colors.inkSoft} />
+          : <Text style={styles.notFoundTitle}>{activeEbirdLookup?.error ?? 'Bird not found'}</Text>}
         <Pressable onPress={() => router.back()} style={styles.backButton}><ArrowLeft color={colors.ink} size={18} /><Text style={styles.backLabel}>Go back</Text></Pressable>
       </SafeAreaView>
     );
@@ -82,6 +121,19 @@ export default function BirdDetailScreen() {
         <Text style={styles.saveLabel}>{saved ? 'Remove from Pokedex' : 'Add to Pokedex'}</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => {
+          const url = getMacaulayAudioNameSearchUrl(bird.name);
+          void Linking.openURL(url).catch(() => Alert.alert('Could not open recordings', 'Please try again.'));
+        }}
+        style={styles.audioButton}
+        accessibilityRole="link"
+      >
+        <Music2 color={colors.inkSoft} size={17} />
+        <Text style={styles.audioButtonText}>Find recordings in Macaulay Library</Text>
+        <ExternalLink color={colors.inkSoft} size={14} />
+      </Pressable>
+
       <View style={styles.creditBlock}>
         <Text style={styles.sectionLabel}>IMAGE CREDIT</Text>
         <Text style={styles.creditText}>{bird.imageCredit} · {bird.imageLicense}</Text>
@@ -94,6 +146,79 @@ export default function BirdDetailScreen() {
       </View>
       <Text style={styles.localNote}>Photo attribution and license are shown with each image.</Text>
     </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function EbirdSpeciesDetail({ species }: { species: EbirdSpecies }) {
+  const openLink = async (url: string, title: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(`Could not open ${title}`, 'Please try again.');
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
+          <ArrowLeft color={colors.ink} size={19} />
+          <Text style={styles.backLabel}>EBIRD TAXONOMY</Text>
+        </Pressable>
+        <View style={[styles.image, styles.unknownImage]}>
+          <Text style={styles.question}>?</Text>
+        </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>WORLDWIDE SPECIES DATABASE</Text>
+          <Text style={styles.title}>{species.comName}</Text>
+          <Text style={styles.scientific}>{species.sciName}</Text>
+          <View style={styles.badges}>
+            <Text style={styles.rarity}>{species.familyComName ?? species.familySciName ?? 'Bird family unavailable'}</Text>
+            <View style={styles.separator} />
+            <Text style={styles.habitat}>{species.category}</Text>
+          </View>
+        </View>
+
+        <View style={styles.rule} />
+        <Text style={styles.sectionLabel}>TAXONOMY</Text>
+        <View style={styles.taxonomyBlock}>
+          <Text style={styles.taxonomyLabel}>SPECIES CODE</Text>
+          <Text style={styles.taxonomyValue}>{species.speciesCode}</Text>
+          {species.order && (
+            <>
+              <Text style={styles.taxonomyLabel}>ORDER</Text>
+              <Text style={styles.taxonomyValue}>{species.order}</Text>
+            </>
+          )}
+          {species.familySciName && (
+            <>
+              <Text style={styles.taxonomyLabel}>SCIENTIFIC FAMILY</Text>
+              <Text style={styles.taxonomyValue}>{species.familySciName}</Text>
+            </>
+          )}
+        </View>
+
+        <Pressable
+          onPress={() => void openLink(getMacaulayAudioSearchUrl(species.speciesCode), 'Macaulay Library recordings')}
+          style={styles.saveButton}
+          accessibilityRole="link"
+        >
+          <Music2 color={colors.white} size={17} />
+          <Text style={styles.saveLabel}>Listen to Macaulay Library recordings</Text>
+          <ExternalLink color={colors.white} size={15} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => void openLink(`https://ebird.org/species/${encodeURIComponent(species.speciesCode)}`, 'eBird species page')}
+          style={styles.sourceLink}
+          accessibilityRole="link"
+        >
+          <Text style={styles.sourceLabel}>More species information on eBird</Text>
+          <ExternalLink color={colors.inkSoft} size={13} />
+        </Pressable>
+        <Text style={styles.provisional}>Taxonomy provided by eBird. Descriptions and recordings are hosted by the linked Cornell Lab services.</Text>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -123,6 +248,22 @@ const styles = StyleSheet.create({
   saveLabel: { color: colors.white, fontSize: 13, fontWeight: '700' },
   creditBlock: { marginTop: 24, padding: 14, backgroundColor: colors.leaf },
   creditText: { color: colors.inkSoft, fontSize: 11, lineHeight: 16, marginTop: 6 },
+  taxonomyBlock: { marginTop: 11, padding: 14, backgroundColor: colors.leaf },
+  taxonomyLabel: { color: colors.inkSoft, fontSize: 9, fontWeight: '800', letterSpacing: 1, marginTop: 10 },
+  taxonomyValue: { color: colors.ink, fontSize: 13, marginTop: 3 },
+  audioButton: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  audioButtonText: { color: colors.inkSoft, fontSize: 11, fontWeight: '700' },
   sourceLink: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 },
   sourceLabel: { color: colors.ink, fontSize: 11, textDecorationLine: 'underline' },
   localNote: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 13, textAlign: 'center' },
@@ -140,6 +281,14 @@ function ObservationDetailView({
   locationUnavailable: boolean;
 }) {
   const description = guideBird?.description ?? observation.description;
+  const ebirdSpecies = observation.ebirdSpecies;
+  const openLink = async (url: string, title: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(`Could not open ${title}`, 'Please try again.');
+    }
+  };
 
   return (
     <SafeAreaView style={observationStyles.screen} edges={['top', 'bottom']}>
@@ -186,6 +335,38 @@ function ObservationDetailView({
                 </>
               )}
             </View>
+            {ebirdSpecies && (
+              <View style={observationStyles.ebirdBlock}>
+                <Text style={observationStyles.sectionLabel}>EBIRD TAXONOMY</Text>
+                <Text style={observationStyles.ebirdName}>{ebirdSpecies.comName}</Text>
+                <Text style={observationStyles.scientific}>{ebirdSpecies.sciName}</Text>
+                <Text style={observationStyles.metaValue}>
+                  {ebirdSpecies.familyComName ?? ebirdSpecies.familySciName ?? 'Bird family unavailable'}
+                  {' · '}{ebirdSpecies.category}
+                </Text>
+                <Pressable
+                  onPress={() => void openLink(getMacaulayAudioSearchUrl(ebirdSpecies.speciesCode), 'Macaulay Library recordings')}
+                  style={observationStyles.ebirdLink}
+                  accessibilityRole="link"
+                >
+                  <Text style={observationStyles.ebirdLinkText}>Find audio recordings in Macaulay Library</Text>
+                  <ExternalLink color={colors.inkSoft} size={13} />
+                </Pressable>
+                <Pressable
+                  onPress={() => void openLink(`https://ebird.org/species/${encodeURIComponent(ebirdSpecies.speciesCode)}`, 'eBird species information')}
+                  style={observationStyles.ebirdLink}
+                  accessibilityRole="link"
+                >
+                  <Text style={observationStyles.ebirdLinkText}>Open species information on eBird</Text>
+                  <ExternalLink color={colors.inkSoft} size={13} />
+                </Pressable>
+              </View>
+            )}
+            {observation.ebirdLookupError && (
+              <Text style={observationStyles.ebirdWarning}>
+                eBird species details could not be loaded: {observation.ebirdLookupError}
+              </Text>
+            )}
           </View>
         </View>
         <Text style={observationStyles.note}>Identification notes are generated from the submitted photo and may need verification.</Text>
@@ -217,5 +398,10 @@ const observationStyles = StyleSheet.create({
   metaBlock: { marginTop: 18, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.leafDeep },
   metaLabel: { color: colors.inkSoft, fontSize: 8, fontWeight: '800', letterSpacing: 1, marginTop: 8 },
   metaValue: { color: colors.ink, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  ebirdBlock: { marginTop: 17, paddingTop: 13, borderTopWidth: 1, borderTopColor: colors.leafDeep },
+  ebirdName: { color: colors.ink, fontFamily: 'Georgia', fontSize: 18, marginTop: 7 },
+  ebirdLink: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  ebirdLinkText: { color: colors.ink, fontSize: 11, textDecorationLine: 'underline' },
+  ebirdWarning: { color: colors.danger, fontSize: 11, lineHeight: 16, marginTop: 12 },
   note: { color: colors.muted, fontSize: 10, lineHeight: 15, textAlign: 'center', marginTop: 14 },
 });

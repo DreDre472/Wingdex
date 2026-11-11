@@ -55,6 +55,23 @@ npx expo start
 
 Open the QR code with Expo Go, or press `a` in the terminal for an Android emulator. Building/running iOS locally requires macOS; EAS Build can create iOS builds from the cloud.
 
+## Build an Android APK
+
+The `preview` EAS profile creates an installable APK. Before building:
+
+1. Install the EAS CLI with `npm install --global eas-cli` and sign in using `eas login`.
+2. Run `eas build:configure` once to link this app to your Expo account.
+3. In the Expo dashboard, add these app environment variables to the `preview` environment: `EXPO_PUBLIC_WINGDEX_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Use your deployed HTTPS backend URL for the API. These `EXPO_PUBLIC_` values are included in the app; never add server secrets such as Gemini, eBird, or Supabase secret keys.
+4. Start the APK build from the project root:
+
+   ```sh
+   eas build --platform android --profile preview
+   ```
+
+5. When EAS finishes, open its build link and download the `.apk` to the Android device, then open it to install. If Android blocks the installation, allow installs from that browser or file manager in Android settings.
+
+Use the `production` profile to create an Android App Bundle (`.aab`) for Google Play instead of an APK.
+
 ## Current implementation
 
 - Photo-library selection and preview.
@@ -63,13 +80,14 @@ Open the QR code with Expo Go, or press `a` in the terminal for an Android emula
 - Saved species and observation records remain available on-device and sync to the signed-in user’s Supabase account when online.
 - Confidence threshold and schema validation for worldwide identification responses.
 
-Live identification uses the separate Node backend in `backend/`. The app sends a multipart `photo` field to `POST /identify`; Gemini can return bird species worldwide as `{ "commonName": "Atlantic Puffin", "scientificName": "Fratercula arctica", "confidence": 0.91, "regions": ["Europe", "North America"] }`. An unclear image returns null names and no regions. Confident observations save their names, approximate range, date, and a private local copy of the selected photo. Unidentified attempts appear with a question mark and do not retain the photo. The geographic range labels are model estimates, not GPS location or a verified distribution database. The worldwide 100-species starter directory is separate from the three-species Palawan reference guide. Keep the Gemini key on the backend, never in the app.
+Live identification uses the separate Node backend in `backend/`. The app sends a multipart `photo` field to `POST /identify`; Gemini can return bird species worldwide as `{ "commonName": "Atlantic Puffin", "scientificName": "Fratercula arctica", "confidence": 0.91, "regions": ["Europe", "North America"] }`. For recognized birds, the backend matches the scientific name (then common name) against eBird taxonomy and includes the matching species record in the response. An eBird lookup failure does not invalidate Gemini's identification and is reported separately. An unclear image returns null names and no regions. Confident observations save their names, approximate range, date, eBird taxonomy (when matched), and a private local copy of the selected photo. Apply the Supabase migration in `supabase/migrations/20261112000100_add_ebird_taxonomy_to_observations.sql` to sync eBird taxonomy with observations. Unidentified attempts appear with a question mark and do not retain the photo. The geographic range labels are model estimates, not GPS location or a verified distribution database. The worldwide 100-species starter directory is separate from the three-species Palawan reference guide. Keep the Gemini key on the backend, never in the app.
 
 ### Start the backend
 
 1. Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. In `backend/`, copy `.env.example` to `.env` and set `GEMINI_API_KEY` to your key. This file is ignored by Git. For Supabase access, set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and the server-only `SUPABASE_SECRET_KEY`. Configure `ADMIN_USER_IDS` with a comma-separated list of operator UUIDs from Supabase Auth. `CORS_ORIGIN` should contain the exact deployed admin origin (comma-separated if multiple); for local portal development use `http://localhost:4174`.
-3. Install and start the service:
+2. Request an [eBird API key](https://ebird.org/api/keygen) and add it as `EBIRD_API_KEY` in the same backend `.env` file. eBird taxonomy, nearby sightings, hotspots, and regional checklists are proxied by the backend; the key is never included in the app.
+3. In `backend/`, copy `.env.example` to `.env` and set `GEMINI_API_KEY` and `EBIRD_API_KEY`. This file is ignored by Git. For Supabase access, set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and the server-only `SUPABASE_SECRET_KEY`. Configure `ADMIN_USER_IDS` with a comma-separated list of operator UUIDs from Supabase Auth. `CORS_ORIGIN` should contain the exact deployed admin origin (comma-separated if multiple); for local portal development use `http://localhost:4174`.
+4. Install and start the service:
 
 	```sh
 	cd backend
@@ -121,6 +139,6 @@ The portal includes overview metrics, searchable/paginated read-only users and c
 
 The backend Vitest suite covers authorization, content mutations, and collection merge/error behavior. `supabase/tests/admin_content_rls.sql` contains pgTAP checks for published-only public reads and denied app-client writes; run it against a local Supabase database with `supabase test db` after applying the migrations. Do not execute migrations or tests against a live project as a substitute for review.
 
-For backend deployment, set `GEMINI_API_KEY`, `GEMINI_MODEL`, `PORT`, `CORS_ORIGIN`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `ADMIN_USER_IDS` in the hosting provider's environment settings. Admin authorization is enforced server-side for every admin route; do not make the secret key available to either client bundle. Use HTTPS for the portal and API and keep the allowlist current. The in-memory rate limit is a basic guard and should be replaced or complemented by production-grade distributed abuse controls when scaling horizontally.
+For backend deployment, set `GEMINI_API_KEY`, `GEMINI_MODEL`, `EBIRD_API_KEY`, `PORT`, `CORS_ORIGIN`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `ADMIN_USER_IDS` in the hosting provider's environment settings. Admin authorization is enforced server-side for every admin route; do not make the secret key available to either client bundle. Use HTTPS for the portal and API and keep the allowlist current. The in-memory rate limit is a basic guard and should be replaced or complemented by production-grade distributed abuse controls when scaling horizontally.
 
-The 100-species worldwide directory is a starter list, not a complete global checklist; geographic regions are broad reference labels. The three-species Palawan guide is also a starter, and its rarity values are provisional. Image credits and license links for guide photos are stored alongside each guide record in `src/data/birds.ts`.
+The bird index searches eBird's worldwide taxonomy. The Nearby screen loads recent observations and hotspots around a location after permission is granted, and can list checklists for an eBird region code and today's date. eBird sightings are not a complete worldwide live feed, and the API does not expose a user's private checklist history. Species recordings open the corresponding [Macaulay Library audio catalog](https://search.macaulaylibrary.org/catalog); playback is hosted by Cornell Lab. See the [eBird API 2.0 documentation](https://documenter.getpostman.com/view/664302/S1ENwy59) for available data and limits. The local 100-species directory remains a starter list, and the three-species Palawan guide's rarity values are provisional. Image credits and license links for guide photos are stored alongside each guide record in `src/data/birds.ts`.

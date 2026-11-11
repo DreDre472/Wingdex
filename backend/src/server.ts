@@ -18,6 +18,9 @@ const client = new GoogleGenAI({ apiKey });
 const app = createApp({
   identifyPhoto: createGeminiIdentifier(client, process.env.GEMINI_MODEL ?? 'gemini-flash-latest'),
   corsOrigins: process.env.CORS_ORIGIN,
+  ebird: {
+    apiKey: process.env.EBIRD_API_KEY,
+  },
   admin: {
     getSupabase: getSupabaseClient,
     adminUserIds: process.env.ADMIN_USER_IDS,

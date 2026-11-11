@@ -1,4 +1,5 @@
 import type { BirdObservation } from './collection';
+import type { EbirdSpecies } from './ebird';
 
 export type RemoteObservation = {
   client_id: string;
@@ -10,6 +11,7 @@ export type RemoteObservation = {
   identified_at: string;
   latitude: number | null;
   longitude: number | null;
+  ebird_species: EbirdSpecies | null;
 };
 
 export function mergeSavedBirdIds(
@@ -42,6 +44,7 @@ export function mergeObservations(
       location: remote.latitude === null || remote.longitude === null
         ? null
         : { latitude: remote.latitude, longitude: remote.longitude },
+      ebirdSpecies: remote.ebird_species,
     });
   }
 

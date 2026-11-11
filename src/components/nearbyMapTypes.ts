@@ -8,5 +8,4 @@ export type NearbyMapSighting = {
   time: string;
   note: string;
   observer: string;
-  birders: number;
 };

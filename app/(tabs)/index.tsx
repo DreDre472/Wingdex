@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -19,21 +20,32 @@ import { getPublishedAnnouncements, type AppAnnouncement } from '../../src/servi
 import { worldBirds } from '../../src/data/world-birds';
 import { NotificationKindIcon } from '../../src/components/NotificationKindIcon';
 import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
+import { useEbirdSpeciesSearch } from '../../src/hooks/useEbirdSpeciesSearch';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
 import { colors } from '../../src/theme';
+
+type PickerKind = 'size' | 'family' | 'sort';
+type SortOption = 'Name A–Z' | 'Name Z–A' | 'Rarity' | 'Size';
+const habitatOptions = ['Woodland', 'Wetland', 'Backyard'] as const;
+const sortOptions: SortOption[] = ['Name A–Z', 'Name Z–A', 'Rarity', 'Size'];
 
 export default function IdentifyScreen() {
   const { savedIds, observations } = useSavedBirds();
   const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState<PickerKind | null>(null);
   const [announcements, setAnnouncements] = useState<AppAnnouncement[]>([]);
   const [featured, setFeatured] = useState(() => getDailyFeaturedBird());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [habitatFilter, setHabitatFilter] = useState<string | null>('Woodland');
+  const [sizeFilter, setSizeFilter] = useState<string | null>(null);
+  const [familyFilter, setFamilyFilter] = useState<string | null>(null);
+  const [unseenOnly, setUnseenOnly] = useState(false);
+  const [sortOption, setSortOption] = useState<SortOption>('Name A–Z');
+  const { matches: ebirdMatches, loading: ebirdLoading, error: ebirdError } = useEbirdSpeciesSearch(searchQuery);
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const catalog = [...birds, ...worldBirds];
-  const woodlandBirds = birds
-    .map((bird, index) => ({ bird, catalogIndex: index + 1 }))
-    .filter(({ bird }) => bird.habitat === 'Woodland')
-    .sort((a, b) => a.bird.name.localeCompare(b.bird.name));
+  const guideBirds = birds.map((bird, index) => ({ bird, catalogIndex: index + 1 }));
   const catalogByName = new Map<string, string>();
   const catalogSpecies = new Set<string>();
 
@@ -60,6 +72,63 @@ export default function IdentifyScreen() {
   const catalogCount = catalogSpecies.size;
   const progress = catalogCount ? Math.min(discoveredCount / catalogCount, 1) : 0;
   const progressPercentage = Math.round(progress * 100);
+  const matchingBirds = guideBirds
+    .filter(({ bird }) => {
+      const query = searchQuery.trim().toLocaleLowerCase();
+      const matchesSearch = !query || [
+        bird.name,
+        bird.scientificName,
+        bird.family,
+      ].some((value) => value.toLocaleLowerCase().includes(query));
+      const matchesHabitat = !habitatFilter || bird.habitat === habitatFilter;
+      const matchesSize = !sizeFilter || bird.size === sizeFilter;
+      const matchesFamily = !familyFilter || bird.family === familyFilter;
+      const speciesKey = bird.scientificName.trim().toLowerCase() || bird.name.trim().toLowerCase();
+      const matchesSeen = !unseenOnly || !discoveredSpecies.has(speciesKey);
+      return matchesSearch && matchesHabitat && matchesSize && matchesFamily && matchesSeen;
+    })
+    .sort((a, b) => {
+      if (sortOption === 'Name Z–A') return b.bird.name.localeCompare(a.bird.name);
+      if (sortOption === 'Rarity') {
+        const rarityOrder = ['common', 'uncommon', 'rare', 'exotic'];
+        const rarityDifference = rarityOrder.indexOf(a.bird.rarity) - rarityOrder.indexOf(b.bird.rarity);
+        return rarityDifference || a.bird.name.localeCompare(b.bird.name);
+      }
+      if (sortOption === 'Size') {
+        const sizeOrder = ['Small', 'Medium', 'Large'];
+        const sizeDifference = sizeOrder.indexOf(a.bird.size) - sizeOrder.indexOf(b.bird.size);
+        return sizeDifference || a.bird.name.localeCompare(b.bird.name);
+      }
+      return a.bird.name.localeCompare(b.bird.name);
+    });
+  const familyOptions = [...new Set(guideBirds.map(({ bird }) => bird.family))]
+    .sort((a, b) => a.localeCompare(b));
+  const pickerOptions = pickerVisible === 'size'
+    ? ['Any size', ...new Set(guideBirds.map(({ bird }) => bird.size))]
+    : pickerVisible === 'family'
+      ? ['All families', ...familyOptions]
+      : sortOptions;
+  const pickerTitle = pickerVisible === 'size'
+    ? 'Choose a size'
+    : pickerVisible === 'family'
+      ? 'Choose a family'
+      : 'Sort species';
+
+  const selectPickerOption = (option: string) => {
+    if (pickerVisible === 'size') setSizeFilter(option === 'Any size' ? null : option);
+    if (pickerVisible === 'family') setFamilyFilter(option === 'All families' ? null : option);
+    if (pickerVisible === 'sort') setSortOption(option as SortOption);
+    setPickerVisible(null);
+  };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setHabitatFilter(null);
+    setSizeFilter(null);
+    setFamilyFilter(null);
+    setUnseenOnly(false);
+    setSortOption('Name A–Z');
+  };
 
   useEffect(() => {
     const now = new Date();
@@ -117,9 +186,29 @@ export default function IdentifyScreen() {
           }
         />
 
-      <View style={styles.searchBar} accessible accessibilityLabel="Search birds by name or family">
+      <View style={styles.searchBar}>
         <Search color={colors.muted} size={18} strokeWidth={2} />
-        <Text style={styles.searchPlaceholder}>Search birds by name or family</Text>
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search birds by name or family"
+          placeholderTextColor={colors.muted}
+          style={styles.searchInput}
+          returnKeyType="search"
+          accessibilityLabel="Search birds by name, scientific name, or family"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable
+            onPress={() => setSearchQuery('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Clear bird search"
+          >
+            <X color={colors.muted} size={17} />
+          </Pressable>
+        )}
       </View>
 
       <Pressable
@@ -151,65 +240,132 @@ export default function IdentifyScreen() {
         </Text>
       </Pressable>
 
-      <View
-        style={styles.filterPanel}
-        accessible
-        accessibilityLabel="Refine your field guide. Reset all. Habitat: Woodland selected, Wetland, Backyard. Size: Any size. Family: All families. Unseen."
-      >
+      <View style={styles.filterPanel}>
         <View style={styles.filterHeading}>
           <Text style={styles.filterTitle}>Refine your field guide</Text>
-          <Text style={styles.filterReset}>Reset all</Text>
+          <Pressable
+            onPress={resetFilters}
+            accessibilityRole="button"
+            accessibilityLabel="Reset all search and filters"
+          >
+            <Text style={styles.filterReset}>Reset all</Text>
+          </Pressable>
         </View>
         <View style={styles.filterRow}>
-          <View style={[styles.filterPill, styles.filterPillSelected]}>
-            <Text style={[styles.filterPillText, styles.filterPillTextSelected]}>Woodland</Text>
-          </View>
-          <View style={styles.filterPill}>
-            <Text style={styles.filterPillText}>Wetland</Text>
-          </View>
-          <View style={styles.filterPill}>
-            <Text style={styles.filterPillText}>Backyard</Text>
-          </View>
+          {habitatOptions.map((habitat) => {
+            const selected = habitatFilter === habitat;
+            return (
+              <Pressable
+                key={habitat}
+                onPress={() => setHabitatFilter(selected ? null : habitat)}
+                style={[styles.filterPill, selected && styles.filterPillSelected]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.filterPillText, selected && styles.filterPillTextSelected]}>
+                  {habitat}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
         <View style={[styles.filterRow, styles.filterOptionsRow]}>
-          <View style={[styles.filterPill, styles.filterOptionPill]}>
-            <Text style={styles.filterPillText}>Any size</Text>
+          <Pressable
+            onPress={() => setPickerVisible('size')}
+            style={[styles.filterPill, styles.filterOptionPill]}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by size: ${sizeFilter ?? 'Any size'}`}
+            accessibilityState={{ expanded: pickerVisible === 'size' }}
+          >
+            <Text style={styles.filterPillText}>{sizeFilter ?? 'Any size'}</Text>
             <ChevronDown color={colors.inkSoft} size={13} strokeWidth={2} />
-          </View>
-          <View style={[styles.filterPill, styles.filterOptionPill]}>
-            <Text style={styles.filterPillText}>All families</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setPickerVisible('family')}
+            style={[styles.filterPill, styles.filterOptionPill]}
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by family: ${familyFilter ?? 'All families'}`}
+            accessibilityState={{ expanded: pickerVisible === 'family' }}
+          >
+            <Text style={styles.filterPillText}>{familyFilter ?? 'All families'}</Text>
             <ChevronDown color={colors.inkSoft} size={13} strokeWidth={2} />
-          </View>
-          <View style={[styles.filterPill, styles.filterOptionPill, styles.unseenPill]}>
-            <Circle color={colors.inkSoft} size={12} strokeWidth={1.7} />
-            <Text style={styles.filterPillText}>Unseen</Text>
-          </View>
+          </Pressable>
+          <Pressable
+            onPress={() => setUnseenOnly((current) => !current)}
+            style={[
+              styles.filterPill,
+              styles.filterOptionPill,
+              styles.unseenPill,
+              unseenOnly && styles.filterPillSelected,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Show unseen birds only"
+            accessibilityState={{ checked: unseenOnly }}
+          >
+            <Circle color={unseenOnly ? colors.white : colors.inkSoft} size={12} strokeWidth={1.7} />
+            <Text style={[styles.filterPillText, unseenOnly && styles.filterPillTextSelected]}>Unseen</Text>
+          </Pressable>
         </View>
       </View>
 
       <View style={styles.resultsSection}>
         <View style={styles.resultsHeading}>
           <View style={styles.resultsTitleGroup}>
-            <Text style={styles.resultsTitle}>Woodland birds</Text>
+            <Text style={styles.resultsTitle}>{habitatFilter ? `${habitatFilter} birds` : 'Field guide birds'}</Text>
             <View style={styles.resultsCount}>
-              <Text style={styles.resultsCountText}>{woodlandBirds.length} species</Text>
+              <Text style={styles.resultsCountText}>{matchingBirds.length} species</Text>
             </View>
           </View>
-          <View style={styles.sortCue} accessible accessibilityLabel="Sorted by name, A to Z">
-            <Text style={styles.sortCueText}>Name A–Z</Text>
+          <Pressable
+            onPress={() => setPickerVisible('sort')}
+            style={styles.sortCue}
+            accessibilityRole="button"
+            accessibilityLabel={`Sort species. Current order: ${sortOption}`}
+            accessibilityState={{ expanded: pickerVisible === 'sort' }}
+          >
+            <Text style={styles.sortCueText}>{sortOption}</Text>
             <ChevronDown color={colors.inkSoft} size={15} strokeWidth={2} />
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.resultList}>
-          {woodlandBirds.map(({ bird, catalogIndex }) => {
+          {searchQuery.trim().length >= 2 && (
+            <View style={styles.ebirdResults}>
+              <Text style={styles.ebirdResultsTitle}>eBird worldwide species</Text>
+              {ebirdLoading && <Text style={styles.emptyResults}>Searching the eBird taxonomy…</Text>}
+              {ebirdError && <Text style={styles.ebirdError}>{ebirdError}</Text>}
+              {ebirdMatches.map((species) => (
+                <Pressable
+                  key={species.speciesCode}
+                  onPress={() => router.push(`/bird/${species.speciesCode}`)}
+                  style={({ pressed }) => [styles.birdResultCard, pressed && styles.progressPressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${species.comName}, ${species.sciName}`}
+                >
+                  <View style={styles.birdResultCopy}>
+                    <Text style={styles.birdResultName}>{species.comName}</Text>
+                    <Text style={styles.birdResultScientific}>{species.sciName}</Text>
+                    <Text style={styles.birdResultMeta}>
+                      {species.familyComName ?? species.familySciName ?? species.category}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+              {!ebirdLoading && !ebirdError && ebirdMatches.length === 0 && (
+                <Text style={styles.emptyResults}>No eBird species match that search.</Text>
+              )}
+            </View>
+          )}
+          {matchingBirds.map(({ bird, catalogIndex }) => {
             const isSaved = savedIds.includes(bird.id);
             return (
-              <View
+              <Pressable
                 key={bird.id}
-                style={styles.birdResultCard}
-                accessible
+                onPress={() => router.push(`/bird/${bird.id}`)}
+                style={({ pressed }) => [styles.birdResultCard, pressed && styles.progressPressed]}
+                accessibilityRole="button"
                 accessibilityLabel={`${bird.name}, ${bird.scientificName}. Family ${bird.family}. ${bird.rarity} rarity. Catalog number ${String(catalogIndex).padStart(3, '0')}. ${isSaved ? 'In your collection' : 'Not yet in your collection'}.`}
+                accessibilityHint="Opens this bird's profile"
               >
                 <View style={styles.birdResultMain}>
                   {birdImages[bird.id] ? (
@@ -239,9 +395,12 @@ export default function IdentifyScreen() {
                     {isSaved ? 'In your collection' : 'Not yet in your collection'}
                   </Text>
                 </View>
-              </View>
+              </Pressable>
             );
           })}
+          {matchingBirds.length === 0 && (
+            <Text style={styles.emptyResults}>No birds match these filters. Try changing your search or reset the filters.</Text>
+          )}
         </View>
       </View>
 
@@ -344,6 +503,46 @@ export default function IdentifyScreen() {
         </View>
       </View>
     </Modal>
+    <Modal
+      visible={pickerVisible !== null}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => setPickerVisible(null)}
+    >
+      <View style={styles.pickerModalRoot}>
+        <Pressable
+          style={styles.notificationBackdrop}
+          onPress={() => setPickerVisible(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close filter options"
+        />
+        <View style={styles.pickerDialog} accessibilityViewIsModal>
+          <Text style={styles.pickerTitle}>{pickerTitle}</Text>
+          <ScrollView style={styles.pickerOptions} showsVerticalScrollIndicator={false}>
+            {pickerOptions.map((option) => {
+              const selected = (pickerVisible === 'size' && (sizeFilter ?? 'Any size') === option)
+                || (pickerVisible === 'family' && (familyFilter ?? 'All families') === option)
+                || (pickerVisible === 'sort' && sortOption === option);
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => selectPickerOption(option)}
+                  style={styles.pickerOption}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[styles.pickerOptionText, selected && styles.pickerOptionTextSelected]}>
+                    {option}
+                  </Text>
+                  {selected && <Check color={colors.inkSoft} size={17} strokeWidth={2.5} />}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 }
@@ -356,7 +555,36 @@ const styles = StyleSheet.create({
   locationText: { color: '#192F27', fontSize: 11, fontWeight: '800' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notificationModalRoot: { flex: 1, alignItems: 'flex-end' },
+  pickerModalRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   notificationBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(16, 35, 28, 0.42)' },
+  pickerDialog: {
+    width: '100%',
+    maxWidth: 380,
+    maxHeight: '70%',
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  pickerTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 21, fontWeight: '700', marginBottom: 8 },
+  pickerOptions: { flexGrow: 0 },
+  pickerOption: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  pickerOptionText: { color: colors.inkSoft, fontSize: 14 },
+  pickerOptionTextSelected: { color: colors.ink, fontWeight: '700' },
   notificationPreview: {
     marginRight: 16,
     flexShrink: 1,
@@ -464,7 +692,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
   },
-  searchPlaceholder: { color: colors.muted, fontSize: 12, flex: 1 },
+  searchInput: { flex: 1, minWidth: 0, paddingVertical: 0, color: colors.ink, fontSize: 12 },
+  emptyResults: {
+    padding: 16,
+    color: colors.muted,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   resultsSection: { marginTop: 22 },
   resultsHeading: {
     flexDirection: 'row',
@@ -493,6 +730,9 @@ const styles = StyleSheet.create({
   },
   sortCueText: { color: colors.inkSoft, fontSize: 10, fontWeight: '600' },
   resultList: { gap: 9 },
+  ebirdResults: { gap: 8, marginBottom: 8 },
+  ebirdResultsTitle: { color: colors.inkSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  ebirdError: { color: colors.danger, fontSize: 11, lineHeight: 16 },
   birdResultCard: {
     padding: 10,
     backgroundColor: colors.white,

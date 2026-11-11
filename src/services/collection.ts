@@ -155,6 +155,8 @@ export async function addBirdObservation(
     identifiedAt: new Date().toISOString(),
     photoUri,
     location,
+    ...(identified && result.ebirdSpecies ? { ebirdSpecies: result.ebirdSpecies } : {}),
+    ...(identified && result.ebirdLookupError ? { ebirdLookupError: result.ebirdLookupError } : {}),
   };
   const observations = await getBirdObservations();
   await AsyncStorage.setItem(currentCollectionStorageKeys().observations, JSON.stringify([observation, ...observations]));
@@ -172,9 +174,23 @@ function isBirdObservation(value: unknown): value is BirdObservation {
   if (!('photoUri' in value) || (typeof value.photoUri !== 'string' && value.photoUri !== null)) return false;
   if (!('regions' in value) || !Array.isArray(value.regions)) return false;
   if ('location' in value && value.location !== null && !isUserLocation(value.location)) return false;
+  if ('ebirdLookupError' in value && typeof value.ebirdLookupError !== 'string') return false;
+  if ('ebirdSpecies' in value && value.ebirdSpecies !== null && !isEbirdSpecies(value.ebirdSpecies)) return false;
 
   const regions: BirdRegion[] = ['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Oceania', 'Antarctica', 'Unknown'];
   return value.regions.every((region) => typeof region === 'string' && regions.includes(region as BirdRegion));
+}
+
+function isEbirdSpecies(value: unknown): value is NonNullable<IdentificationResult['ebirdSpecies']> {
+  if (typeof value !== 'object' || value === null) return false;
+  return 'speciesCode' in value && typeof value.speciesCode === 'string'
+    && 'comName' in value && typeof value.comName === 'string'
+    && 'sciName' in value && typeof value.sciName === 'string'
+    && 'category' in value && typeof value.category === 'string'
+    && (!('familyCode' in value) || typeof value.familyCode === 'string')
+    && (!('familyComName' in value) || typeof value.familyComName === 'string')
+    && (!('familySciName' in value) || typeof value.familySciName === 'string')
+    && (!('order' in value) || typeof value.order === 'string');
 }
 
 function isUserLocation(value: unknown): value is UserLocation {

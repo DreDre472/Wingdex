@@ -53,6 +53,7 @@ export async function syncCollectionForUser(userId: string): Promise<CollectionS
         identified_at: observation.identifiedAt,
         latitude: observation.location?.latitude ?? null,
         longitude: observation.location?.longitude ?? null,
+        ebird_species: observation.ebirdSpecies ?? null,
       }));
       const { error } = await client
         .from('observations')
@@ -89,7 +90,7 @@ async function fetchRemoteObservations(userId: string): Promise<RemoteObservatio
   for (let offset = 0; ; offset += 500) {
     const { data, error } = await supabase
       .from('observations')
-      .select('client_id,common_name,scientific_name,description,confidence,regions,identified_at,latitude,longitude')
+      .select('client_id,common_name,scientific_name,description,confidence,regions,identified_at,latitude,longitude,ebird_species')
       .eq('user_id', userId)
       .order('client_id', { ascending: true })
       .range(offset, offset + 499);

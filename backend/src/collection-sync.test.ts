@@ -44,6 +44,7 @@ describe('collection sync merge behavior', () => {
           identified_at: '2026-11-01T10:00:00.000Z',
           latitude: 45.5,
           longitude: -122.6,
+          ebird_species: null,
         },
         {
           client_id: 'other-device-2',
@@ -55,6 +56,12 @@ describe('collection sync merge behavior', () => {
           identified_at: '2026-11-02T10:00:00.000Z',
           latitude: null,
           longitude: null,
+          ebird_species: {
+            speciesCode: 'varthr',
+            comName: 'Varied Thrush',
+            sciName: 'Ixoreus naevius',
+            category: 'species',
+          },
         },
       ],
     );
@@ -64,6 +71,7 @@ describe('collection sync merge behavior', () => {
       .toBe('file:///local/flicker.jpg');
     expect(result[0].id).toBe('other-device-2');
     expect(result[0].location).toBeNull();
+    expect(result[0].ebirdSpecies?.speciesCode).toBe('varthr');
   });
 
   it('scopes every sync operation to the signed-in user and removes only explicit tombstones', async () => {

@@ -11,6 +11,7 @@ import { birds } from '../../src/data/birds';
 import { birdRegions, type BirdRegion } from '../../src/data/regions';
 import { worldBirds } from '../../src/data/world-birds';
 import { useSavedBirds } from '../../src/hooks/useSavedBirds';
+import { useEbirdSpeciesSearch } from '../../src/hooks/useEbirdSpeciesSearch';
 import { colors } from '../../src/theme';
 
 const filters = ['All', ...birdRegions] as const;
@@ -20,6 +21,7 @@ export default function BirdsScreen() {
   const [query, setQuery] = useState('');
   const [region, setRegion] = useState<'All' | BirdRegion>('All');
   const { observations, savedIds, storageError, toggle } = useSavedBirds();
+  const { matches: ebirdMatches, loading: ebirdLoading, error: ebirdError } = useEbirdSpeciesSearch(query);
   const { guideBirds, worldSpecies, observationBirds } = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const matchingGuide = birds.filter((bird) => {
@@ -48,7 +50,7 @@ export default function BirdsScreen() {
     });
     return { guideBirds: matchingGuide, worldSpecies: matchingWorldSpecies, observationBirds };
   }, [observations, query, region]);
-  const visibleCount = guideBirds.length + worldSpecies.length + observationBirds.length;
+  const visibleCount = guideBirds.length + worldSpecies.length + observationBirds.length + ebirdMatches.length;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -108,9 +110,38 @@ export default function BirdsScreen() {
       </ScrollView>
 
       <View style={styles.catalogNote}>
-        <Text style={styles.catalogNoteText}>103 guide species · photos appear after a confident identification. Worldwide sightings outside this starter list appear below.</Text>
+        <Text style={styles.catalogNoteText}>Search the worldwide eBird taxonomy, alongside your field guide and saved observations.</Text>
       </View>
       {storageError && <Text style={styles.error}>Could not update your Pokedex on this device.</Text>}
+
+      {query.trim().length >= 2 && (
+        <View style={styles.ebirdSection}>
+          <Text style={styles.ebirdHeading}>eBird species database</Text>
+          {ebirdLoading && <Text style={styles.ebirdMessage}>Searching the worldwide taxonomy…</Text>}
+          {ebirdError && <Text style={styles.error}>{ebirdError}</Text>}
+          {ebirdMatches.map((species) => (
+            <Pressable
+              key={species.speciesCode}
+              onPress={() => router.push(`/bird/${species.speciesCode}`)}
+              style={styles.ebirdResult}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${species.comName}, ${species.sciName}`}
+            >
+              <View style={styles.ebirdCopy}>
+                <Text style={styles.ebirdName}>{species.comName}</Text>
+                <Text style={styles.ebirdScientific}>{species.sciName}</Text>
+                <Text style={styles.ebirdFamily}>
+                  {species.familyComName ?? species.familySciName ?? species.category}
+                </Text>
+              </View>
+              <Text style={styles.ebirdCode}>{species.speciesCode}</Text>
+            </Pressable>
+          ))}
+          {!ebirdLoading && !ebirdError && ebirdMatches.length === 0 && (
+            <Text style={styles.ebirdMessage}>No eBird species matched that search.</Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.list}>
         {guideBirds.map((bird) => {
@@ -175,6 +206,27 @@ const styles = StyleSheet.create({
   filterTextSelected: { color: colors.white },
   catalogNote: { borderLeftWidth: 3, borderLeftColor: colors.coral, paddingLeft: 9, marginBottom: 12 },
   catalogNoteText: { color: colors.muted, fontSize: 10, lineHeight: 14 },
+  ebirdSection: { marginBottom: 12 },
+  ebirdHeading: { color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 9 },
+  ebirdMessage: { color: colors.muted, fontSize: 12, lineHeight: 18, paddingVertical: 8 },
+  ebirdResult: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: 13,
+    marginBottom: 8,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  ebirdCopy: { flex: 1, minWidth: 0 },
+  ebirdName: { color: colors.ink, fontSize: 14, fontWeight: '700' },
+  ebirdScientific: { color: colors.muted, fontSize: 11, fontStyle: 'italic', marginTop: 3 },
+  ebirdFamily: { color: colors.inkSoft, fontSize: 10, marginTop: 4 },
+  ebirdCode: { color: colors.muted, fontSize: 9, fontWeight: '700' },
   list: { paddingTop: 2 },
   error: { color: colors.danger, fontSize: 12, marginBottom: 10 },
   empty: { alignItems: 'center', paddingVertical: 38, backgroundColor: colors.white },

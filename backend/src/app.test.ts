@@ -13,8 +13,21 @@ describe('POST /identify', () => {
       confidence: 0.91,
       regions: ['Europe', 'North America'],
     });
+    let fetchCount = 0;
+    const fetch: typeof globalThis.fetch = async () => {
+      fetchCount += 1;
+      return new Response(JSON.stringify([
+        {
+          speciesCode: 'atlpuf',
+          comName: 'Atlantic Puffin',
+          sciName: 'Fratercula arctica',
+          category: 'species',
+          familyComName: 'Auks, Murres, and Puffins',
+        },
+      ]));
+    };
 
-    const response = await request(createApp({ identifyPhoto }))
+    const response = await request(createApp({ identifyPhoto, ebird: { apiKey: 'test-key', fetch } }))
       .post('/identify')
       .attach('photo', photo, { filename: 'bird.jpg', contentType: 'image/jpeg' });
 
@@ -25,8 +38,38 @@ describe('POST /identify', () => {
       description: 'A seabird with a colorful bill that nests in coastal burrows.',
       confidence: 0.91,
       regions: ['Europe', 'North America'],
+      ebirdSpecies: {
+        speciesCode: 'atlpuf',
+        comName: 'Atlantic Puffin',
+        sciName: 'Fratercula arctica',
+        category: 'species',
+        familyComName: 'Auks, Murres, and Puffins',
+      },
     });
     expect(identifyPhoto).toHaveBeenCalledWith(photo, 'image/jpeg');
+    expect(fetchCount).toBe(1);
+  });
+
+  it('keeps a successful identification when eBird is unavailable', async () => {
+    const identifyPhoto = vi.fn().mockResolvedValue({
+      commonName: 'Atlantic Puffin',
+      scientificName: 'Fratercula arctica',
+      description: 'A seabird with a colorful bill.',
+      confidence: 0.91,
+      regions: ['Europe'],
+    });
+
+    const response = await request(createApp({
+      identifyPhoto,
+      ebird: { apiKey: 'test-key', fetch: vi.fn().mockRejectedValue(new Error('network unavailable')) },
+    }))
+      .post('/identify')
+      .attach('photo', photo, { filename: 'bird.jpg', contentType: 'image/jpeg' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.commonName).toBe('Atlantic Puffin');
+    expect(response.body.ebirdSpecies).toBeNull();
+    expect(response.body.ebirdLookupError).toContain('Could not reach eBird');
   });
 
   it('rejects requests without a photo', async () => {

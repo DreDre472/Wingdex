@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -18,79 +19,104 @@ import {
   Footprints,
   MapPin,
   Navigation,
-  UsersRound,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NearbyMap } from '../../src/components/NearbyMap';
 import { PageHeader, PageHeaderAction } from '../../src/components/PageHeader';
 import type { NearbyMapSighting } from '../../src/components/nearbyMapTypes';
+import {
+  getEbirdChecklists,
+  getNearbyEbirdHotspots,
+  getNearbyEbirdObservations,
+  getRegionalEbirdObservations,
+  type EbirdChecklist,
+  type EbirdHotspot,
+  type EbirdObservation,
+} from '../../src/services/ebird';
 import { getCurrentLocation, type UserLocation } from '../../src/services/location';
 import { colors } from '../../src/theme';
 
-const sightings: NearbyMapSighting[] = [
-  {
-    id: 'robin',
-    name: 'American Robin',
-    scientificName: 'Turdus migratorius',
-    latitude: 45.5242,
-    longitude: -122.6253,
-    distance: '0.3 mi',
-    time: '2 min ago',
-    note: 'Singing from the big oak near the garden path.',
-    observer: 'Maya R.',
-    birders: 4,
-  },
-  {
-    id: 'chickadee',
-    name: 'Black-capped Chickadee',
-    scientificName: 'Poecile atricapillus',
-    latitude: 45.5209,
-    longitude: -122.6218,
-    distance: '0.5 mi',
-    time: '8 min ago',
-    note: 'A lively pair moving through the cedar grove.',
-    observer: 'Sam L.',
-    birders: 3,
-  },
-  {
-    id: 'flicker',
-    name: 'Northern Flicker',
-    scientificName: 'Colaptes auratus',
-    latitude: 45.5189,
-    longitude: -122.6277,
-    distance: '0.7 mi',
-    time: '14 min ago',
-    note: 'Foraging on the lawn along the east trail.',
-    observer: 'Jordan P.',
-    birders: 2,
-  },
-  {
-    id: 'jay',
-    name: "Steller's Jay",
-    scientificName: 'Cyanocitta stelleri',
-    latitude: 45.5228,
-    longitude: -122.6301,
-    distance: '0.4 mi',
-    time: '21 min ago',
-    note: 'Spotted near the rhododendron garden.',
-    observer: 'Alex W.',
-    birders: 5,
-  },
-];
+function toSighting(observation: EbirdObservation, location: UserLocation): NearbyMapSighting {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const latitudeDifference = radians(observation.lat - location.latitude);
+  const longitudeDifference = radians(observation.lng - location.longitude);
+  const a = Math.sin(latitudeDifference / 2) ** 2
+    + Math.cos(radians(location.latitude)) * Math.cos(radians(observation.lat))
+    * Math.sin(longitudeDifference / 2) ** 2;
+  const distanceKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const observedAt = new Date(observation.obsDt);
+  const time = Number.isNaN(observedAt.getTime())
+    ? observation.obsDt
+    : observedAt.toLocaleString();
+  return {
+    id: `${observation.locId ?? 'location'}-${observation.speciesCode}-${observation.obsDt}`,
+    name: observation.comName,
+    scientificName: observation.sciName,
+    latitude: observation.lat,
+    longitude: observation.lng,
+    distance: distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m` : `${distanceKm.toFixed(1)} km`,
+    time,
+    note: `${observation.howMany ?? 'One or more'} reported${observation.locName ? ` at ${observation.locName}` : ''}.`,
+    observer: 'eBird observation',
+  };
+}
+
+function todayDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
 
 export default function NearbyScreen() {
-  const [selectedSightingId, setSelectedSightingId] = useState('robin');
+  const [sightings, setSightings] = useState<NearbyMapSighting[]>([]);
+  const [hotspots, setHotspots] = useState<EbirdHotspot[]>([]);
+  const [checklists, setChecklists] = useState<EbirdChecklist[]>([]);
+  const [regionalObservations, setRegionalObservations] = useState<EbirdObservation[]>([]);
+  const [checklistRegionCode, setChecklistRegionCode] = useState('');
+  const [loadingChecklists, setLoadingChecklists] = useState(false);
+  const [selectedSightingId, setSelectedSightingId] = useState('');
   const [location, setLocation] = useState<UserLocation | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [requestingLocation, setRequestingLocation] = useState(false);
-  const selectedSighting =
-    sightings.find((sighting) => sighting.id === selectedSightingId) ?? sightings[0];
+  const selectedSighting = sightings.find((sighting) => sighting.id === selectedSightingId);
 
   const requestLocation = async () => {
     setRequestingLocation(true);
     setLocationError(null);
+    setDataError(null);
+    setSightings([]);
+    setHotspots([]);
+    setChecklists([]);
+    setRegionalObservations([]);
     try {
-      setLocation(await getCurrentLocation());
+      const currentLocation = await getCurrentLocation();
+      setLocation(currentLocation);
+      const [observationResult, hotspotResult] = await Promise.allSettled([
+        getNearbyEbirdObservations(currentLocation),
+        getNearbyEbirdHotspots(currentLocation),
+      ]);
+      const errors: string[] = [];
+      if (observationResult.status === 'fulfilled') {
+        const nextSightings = observationResult.value.map((item) => toSighting(item, currentLocation));
+        setSightings(nextSightings);
+        setSelectedSightingId(nextSightings[0]?.id ?? '');
+      } else {
+        setSightings([]);
+        errors.push(observationResult.reason instanceof Error ? observationResult.reason.message : 'Could not load eBird sightings.');
+      }
+      if (hotspotResult.status === 'fulfilled') {
+        const nextHotspots = hotspotResult.value;
+        setHotspots(nextHotspots);
+        const regionCode = nextHotspots.find((hotspot) => hotspot.subnational1Code)?.subnational1Code;
+        if (regionCode) {
+          setChecklistRegionCode(regionCode);
+          await loadChecklists(regionCode);
+        }
+      } else {
+        setHotspots([]);
+        errors.push(hotspotResult.reason instanceof Error ? hotspotResult.reason.message : 'Could not load eBird hotspots.');
+      }
+      if (errors.length) setDataError(errors.join(' '));
     } catch (error) {
       setLocationError(
         error instanceof Error ? error.message : 'Could not get your location. Please try again.',
@@ -100,7 +126,43 @@ export default function NearbyScreen() {
     }
   };
 
+  const loadChecklists = async (regionCode = checklistRegionCode) => {
+    const normalizedRegion = regionCode.trim().toUpperCase();
+    if (!normalizedRegion) {
+      setDataError('Enter an eBird region code (for example, US-CA) to view today’s checklists.');
+      return;
+    }
+    setChecklistRegionCode(normalizedRegion);
+    setLoadingChecklists(true);
+    setDataError(null);
+    try {
+      const [checklistResult, observationResult] = await Promise.allSettled([
+        getEbirdChecklists(normalizedRegion, todayDate()),
+        getRegionalEbirdObservations(normalizedRegion),
+      ]);
+      const errors: string[] = [];
+      if (checklistResult.status === 'fulfilled') setChecklists(checklistResult.value);
+      else {
+        setChecklists([]);
+        errors.push(checklistResult.reason instanceof Error ? checklistResult.reason.message : 'Could not load checklists.');
+      }
+      if (observationResult.status === 'fulfilled') setRegionalObservations(observationResult.value);
+      else {
+        setRegionalObservations([]);
+        errors.push(observationResult.reason instanceof Error ? observationResult.reason.message : 'Could not load regional sightings.');
+      }
+      if (errors.length) setDataError(errors.join(' '));
+    } catch (error) {
+      setChecklists([]);
+      setRegionalObservations([]);
+      setDataError(error instanceof Error ? error.message : 'Could not load eBird checklists.');
+    } finally {
+      setLoadingChecklists(false);
+    }
+  };
+
   const openDirections = async () => {
+    if (!selectedSighting) return;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedSighting.latitude},${selectedSighting.longitude}&travelmode=walking`;
     try {
       await Linking.openURL(url);
@@ -134,7 +196,7 @@ export default function NearbyScreen() {
           onPress={() => void requestLocation()}
           disabled={requestingLocation}
           accessibilityRole="button"
-          accessibilityLabel="Use my current location"
+          accessibilityLabel="Share approximate location with eBird to load nearby sightings and hotspots"
         >
           <View style={styles.locationIcon}>
             {requestingLocation ? (
@@ -150,7 +212,7 @@ export default function NearbyScreen() {
             <Text style={styles.locationMeta}>
               {location
                 ? `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`
-                : 'Tap to allow access and center the map'}
+                : 'Tap to share approximate location with eBird for nearby data'}
             </Text>
           </View>
           <Navigation color={colors.inkSoft} size={18} />
@@ -159,8 +221,8 @@ export default function NearbyScreen() {
 
         <View style={styles.mapHeading}>
           <View>
-            <Text style={styles.sectionEyebrow}>FIELD NOTES</Text>
-            <Text style={styles.mapTitle}>Around the area</Text>
+            <Text style={styles.sectionEyebrow}>EBIRD DATA</Text>
+            <Text style={styles.mapTitle}>Recent sightings nearby</Text>
           </View>
           <View style={styles.mapBadge}>
             <View style={styles.mapDot} />
@@ -171,11 +233,17 @@ export default function NearbyScreen() {
         <NearbyMap
           location={location}
           sightings={sightings}
-          selectedSightingId={selectedSighting.id}
+          selectedSightingId={selectedSightingId}
           onSelectSighting={setSelectedSightingId}
         />
 
-        <View style={styles.sightingCard}>
+        {requestingLocation && <ActivityIndicator color={colors.inkSoft} style={styles.loading} />}
+        {dataError && <Text style={styles.locationError}>{dataError}</Text>}
+        {!requestingLocation && location && sightings.length === 0 && !dataError && (
+          <Text style={styles.emptyState}>No recent eBird observations were found within 25 km.</Text>
+        )}
+
+        {selectedSighting && <View style={styles.sightingCard}>
           <View style={styles.sightingTop}>
             <View style={styles.birdArtwork}>
               <View style={styles.artworkHalo} />
@@ -205,9 +273,6 @@ export default function NearbyScreen() {
           <View style={styles.communityRow}>
             <CheckCircle2 color={colors.inkSoft} size={15} strokeWidth={2.2} />
             <Text style={styles.observerText}>{selectedSighting.observer}</Text>
-            <View style={styles.communityDivider} />
-            <UsersRound color={colors.muted} size={14} />
-            <Text style={styles.birderCount}>{selectedSighting.birders} nearby birders</Text>
           </View>
           <Pressable
             onPress={() => void openDirections()}
@@ -219,12 +284,110 @@ export default function NearbyScreen() {
             <Text style={styles.directionsText}>Get walking directions</Text>
             <Navigation color={colors.white} size={17} strokeWidth={2} />
           </Pressable>
+        </View>}
+
+        <View style={styles.dataSection}>
+          <Text style={styles.mapTitle}>eBird hotspots</Text>
+          {hotspots.length === 0
+            ? <Text style={styles.emptyState}>Hotspots appear after you share your location.</Text>
+            : hotspots.slice(0, 8).map((hotspot) => (
+              <Pressable
+                key={hotspot.locId}
+                onPress={() => {
+                  const url = `https://ebird.org/hotspot/${encodeURIComponent(hotspot.locId)}`;
+                  void Linking.openURL(url).catch(() => {
+                    Alert.alert('Could not open hotspot', 'Please try again.');
+                  });
+                }}
+                style={styles.hotspotRow}
+                accessibilityRole="link"
+                accessibilityLabel={`Open eBird hotspot ${hotspot.name}`}
+              >
+                <MapPin color={colors.inkSoft} size={17} />
+                <View style={styles.hotspotCopy}>
+                  <Text style={styles.hotspotName}>{hotspot.name}</Text>
+                  <Text style={styles.hotspotMeta}>
+                    {hotspot.numSpeciesAllTime !== undefined
+                      ? `${hotspot.numSpeciesAllTime} species recorded`
+                      : 'View hotspot details on eBird'}
+                  </Text>
+                </View>
+                <Navigation color={colors.muted} size={15} />
+              </Pressable>
+            ))}
+        </View>
+
+        <View style={styles.dataSection}>
+          <Text style={styles.mapTitle}>Regional eBird activity</Text>
+          <Text style={styles.checklistNote}>Recent sightings and today’s public checklists. Enter a region code, such as US-CA or GB-ENG.</Text>
+          <View style={styles.checklistSearch}>
+            <TextInput
+              value={checklistRegionCode}
+              onChangeText={setChecklistRegionCode}
+              placeholder="Region code"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="characters"
+              accessibilityLabel="eBird region code"
+              style={styles.regionInput}
+            />
+            <Pressable
+              onPress={() => void loadChecklists()}
+              disabled={loadingChecklists}
+              style={({ pressed }) => [styles.checklistButton, pressed && styles.buttonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Load today's regional checklists"
+            >
+              {loadingChecklists
+                ? <ActivityIndicator color={colors.white} size="small" />
+                : <Text style={styles.checklistButtonText}>Load</Text>}
+            </Pressable>
+          </View>
+          {regionalObservations.slice(0, 10).map((observation) => (
+            <View key={`${observation.speciesCode}-${observation.obsDt}-${observation.locId}`} style={styles.hotspotRow}>
+              <Bird color={colors.inkSoft} size={17} />
+              <View style={styles.hotspotCopy}>
+                <Text style={styles.hotspotName}>{observation.comName}</Text>
+                <Text style={styles.hotspotMeta}>
+                  {(observation.locName ?? checklistRegionCode) || 'eBird region'} · {observation.obsDt}
+                </Text>
+              </View>
+            </View>
+          ))}
+          {regionalObservations.length === 0 && !loadingChecklists && (
+            <Text style={styles.emptyState}>No recent regional observations loaded.</Text>
+          )}
+          {checklists.slice(0, 10).map((checklist) => (
+            <Pressable
+              key={checklist.subId}
+              onPress={() => {
+                void Linking.openURL(`https://ebird.org/checklist/${encodeURIComponent(checklist.subId)}`).catch(() => {
+                  Alert.alert('Could not open checklist', 'Please try again.');
+                });
+              }}
+              style={styles.hotspotRow}
+              accessibilityRole="link"
+              accessibilityLabel={`Open eBird checklist at ${checklist.locName ?? 'a location'}`}
+            >
+              <CheckCircle2 color={colors.inkSoft} size={17} />
+              <View style={styles.hotspotCopy}>
+                <Text style={styles.hotspotName}>{checklist.locName ?? 'eBird checklist'}</Text>
+                <Text style={styles.hotspotMeta}>
+                  {checklist.numSpecies !== undefined ? `${checklist.numSpecies} species · ` : ''}
+                  {checklist.obsDt}
+                </Text>
+              </View>
+              <Navigation color={colors.muted} size={15} />
+            </Pressable>
+          ))}
+          {checklists.length === 0 && regionalObservations.length === 0 && !loadingChecklists && (
+            <Text style={styles.emptyState}>No recent observations or checklists loaded for this region today.</Text>
+          )}
         </View>
 
         <View style={styles.mapFooter}>
           <MapPin color={colors.inkSoft} size={14} />
           <Text style={styles.footerText}>
-            Sample community sightings · your location stays on this device.
+            eBird data is provided by Cornell Lab. Approximate coordinates are sent to eBird for nearby results and are not saved by Wingdex.
           </Text>
         </View>
       </ScrollView>
@@ -351,5 +514,44 @@ const styles = StyleSheet.create({
   directionsText: { color: colors.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.1 },
   mapFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
   footerText: { color: colors.muted, fontSize: 10, lineHeight: 15 },
+  loading: { marginVertical: 16 },
+  emptyState: { color: colors.muted, fontSize: 12, lineHeight: 18, paddingVertical: 9 },
+  dataSection: { marginTop: 24 },
+  hotspotRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 7,
+    borderRadius: 14,
+    backgroundColor: colors.white,
+  },
+  hotspotCopy: { flex: 1, minWidth: 0 },
+  hotspotName: { color: colors.ink, fontSize: 12, fontWeight: '700' },
+  hotspotMeta: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  checklistNote: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  checklistSearch: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  regionInput: {
+    flex: 1,
+    minHeight: 42,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    color: colors.ink,
+    fontSize: 12,
+  },
+  checklistButton: {
+    minWidth: 70,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.ink,
+  },
+  checklistButtonText: { color: colors.white, fontSize: 12, fontWeight: '700' },
   pressed: { opacity: 0.8 },
 });
