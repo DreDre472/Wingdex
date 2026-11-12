@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import * as ExpoLinking from 'expo-linking';
 import { router } from 'expo-router';
-import { ArrowLeft, ArrowUpRight, Feather, Leaf, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, ArrowUpRight, CodeXml, Feather, Leaf, LockKeyhole, Mail, ShieldCheck } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Session } from '@supabase/supabase-js';
@@ -23,7 +23,7 @@ import { isSupabaseConfigured, supabase } from '../src/services/supabase';
 import { colors } from '../src/theme';
 
 type AuthMode = 'login' | 'signup' | 'reset' | 'recovery';
-type OAuthProvider = 'google' | 'facebook';
+type OAuthProvider = 'google' | 'facebook' | 'github';
 type Notice = { kind: 'success' | 'error'; text: string };
 
 const RECOVERY_PENDING_KEY = 'wingdex.auth.recovery-pending';
@@ -189,7 +189,7 @@ export default function AuthScreen() {
         kind: 'error',
         text: error instanceof Error
           ? friendlyError(error.message)
-          : `Could not start ${provider === 'google' ? 'Google' : 'Facebook'} sign-in. Please try again.`,
+          : `Could not start ${provider === 'google' ? 'Google' : provider === 'facebook' ? 'Facebook' : 'GitHub'} sign-in. Please try again.`,
       });
     } finally {
       setSubmitting(false);
@@ -470,6 +470,25 @@ export default function AuthScreen() {
                           <Text style={styles.facebookMark}>f</Text>
                         )}
                         <Text style={styles.socialButtonText}>Facebook</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Continue with GitHub"
+                        accessibilityState={{ disabled: submitting || !isSupabaseConfigured }}
+                        disabled={submitting || !isSupabaseConfigured}
+                        onPress={() => void handleOAuthSignIn('github')}
+                        style={({ pressed }) => [
+                          styles.socialButton,
+                          pressed && styles.pressed,
+                          (submitting || !isSupabaseConfigured) && styles.disabled,
+                        ]}
+                      >
+                        {submitting && oauthProvider === 'github' ? (
+                          <ActivityIndicator color={colors.ink} size="small" />
+                        ) : (
+                          <CodeXml color={colors.ink} size={20} />
+                        )}
+                        <Text style={styles.socialButtonText}>GitHub</Text>
                       </Pressable>
                     </View>
                   </View>
